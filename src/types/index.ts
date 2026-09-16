@@ -81,6 +81,7 @@ export interface Employee {
     email: string;
     role: UserRole;
   };
+  createdAt?: string;
 }
 
 export interface User {
@@ -335,3 +336,81 @@ export interface ApiResponse<T = any> {
   data?: T;
   [key: string]: any;
 }
+
+export type EmployeeDocumentType =
+  | "AADHAAR"
+  | "PAN"
+  | "PASSPORT"
+  | "DRIVING_LICENCE"
+  | "EDUCATION_CERTIFICATE"
+  | "EXPERIENCE_LETTER"
+  | "OFFER_LETTER"
+  | "EMPLOYMENT_CONTRACT"
+  | "BANK_DOCUMENT"
+  | "OTHER";
+
+export type DocumentVerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
+
+export interface EmployeeDocument {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  documentType: EmployeeDocumentType;
+  title?: string | null;
+  fileName: string;
+  fileUrl: string;
+  fileSize?: number | null;
+  mimeType?: string | null;
+  status: DocumentVerificationStatus;
+  rejectionReason?: string | null;
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  expiryDate?: string | null;
+  expiryReminderSent: boolean;
+  isExpired?: boolean;
+  isExpiringSoon?: boolean;
+  daysUntilExpiry?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeDocumentChecklistItem {
+  type: EmployeeDocumentType;
+  label: string;
+  description: string;
+  isMandatory: boolean;
+  hasExpiry: boolean;
+  isUploaded: boolean;
+  isVerified: boolean;
+  status: "VERIFIED" | "PENDING" | "REJECTED" | "UPLOADED" | "MISSING";
+  uploadedCount: number;
+  latestDocument?: EmployeeDocument | null;
+}
+
+export interface EmployeeDocumentsData {
+  employee: {
+    id: string;
+    employeeCode: string;
+    firstName: string;
+    lastName?: string | null;
+    name: string;
+    email?: string | null;
+    department?: string;
+    branch?: string;
+  };
+  summary: {
+    totalDocuments: number;
+    verifiedCount: number;
+    pendingCount: number;
+    rejectedCount: number;
+    expiredCount: number;
+    expiringSoonCount: number;
+    completionPercentage: number;
+    totalMandatory: number;
+    uploadedMandatory: number;
+    verifiedMandatory: number;
+  };
+  checklist: EmployeeDocumentChecklistItem[];
+  documents: EmployeeDocument[];
+}
+

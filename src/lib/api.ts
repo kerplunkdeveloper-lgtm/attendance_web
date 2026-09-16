@@ -408,7 +408,39 @@ export const employeesApi = {
     const res = await api.post("/employees/invite", payload);
     return res.data;
   },
+  // Employee Documents
+  getDocuments: async (employeeId: string) => {
+    const res = await api.get(`/employees/${employeeId}/documents`);
+    return res.data;
+  },
+  uploadDocument: async (employeeId: string, formDataOrPayload: FormData | any) => {
+    const isFormData = typeof FormData !== "undefined" && formDataOrPayload instanceof FormData;
+    const res = await api.post(`/employees/${employeeId}/documents`, formDataOrPayload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+    return res.data;
+  },
+  updateDocument: async (employeeId: string, docId: string, formDataOrPayload: FormData | any) => {
+    const isFormData = typeof FormData !== "undefined" && formDataOrPayload instanceof FormData;
+    const res = await api.put(`/employees/${employeeId}/documents/${docId}`, formDataOrPayload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+    return res.data;
+  },
+  deleteDocument: async (employeeId: string, docId: string) => {
+    const res = await api.delete(`/employees/${employeeId}/documents/${docId}`);
+    return res.data;
+  },
+  verifyDocument: async (employeeId: string, docId: string, payload: { status: string; rejectionReason?: string }) => {
+    const res = await api.post(`/employees/${employeeId}/documents/${docId}/verify`, payload);
+    return res.data;
+  },
+  sendExpiryReminder: async (employeeId: string, docId: string) => {
+    const res = await api.post(`/employees/${employeeId}/documents/${docId}/remind-expiry`);
+    return res.data;
+  },
 };
+
 
 
 export const branchesApi = {

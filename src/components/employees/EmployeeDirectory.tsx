@@ -19,9 +19,11 @@ import {
   Edit,
   Sparkles,
   Send,
+  FileCheck2,
 } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import EmployeeProfileModal from "./EmployeeProfileModal";
 
 export default function EmployeeDirectory() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -30,6 +32,11 @@ export default function EmployeeDirectory() {
   const [shifts, setShifts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Profile & Documents Modal State
+  const [selectedEmployeeForProfile, setSelectedEmployeeForProfile] = useState<Employee | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+
 
   // Create / Invite Employee Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -227,31 +234,38 @@ export default function EmployeeDirectory() {
                 <th className="py-3.5 px-4">Shift</th>
                 <th className="py-3.5 px-4">Role</th>
                 <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10 text-slate-500">
+                  <td colSpan={8} className="text-center py-10 text-slate-500">
                     Loading workforce directory...
                   </td>
                 </tr>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-500">
+                  <td colSpan={8} className="text-center py-12 text-slate-500">
                     No employees matching search criteria.
                   </td>
                 </tr>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-800/40 transition">
+                  <tr key={emp.id} className="hover:bg-slate-800/40 transition group">
                     <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow">
+                      <div
+                        onClick={() => {
+                          setSelectedEmployeeForProfile(emp);
+                          setProfileModalOpen(true);
+                        }}
+                        className="flex items-center gap-3 cursor-pointer"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow group-hover:ring-2 group-hover:ring-indigo-400/40 transition">
                           {emp.firstName?.[0] || "E"}
                         </div>
                         <div>
-                          <p className="font-semibold text-white">
+                          <p className="font-semibold text-white group-hover:text-indigo-300 transition">
                             {emp.firstName} {emp.lastName || ""}
                           </p>
                           <p className="text-[11px] text-slate-400">{emp.user?.email || emp.phone || "-"}</p>
@@ -285,6 +299,19 @@ export default function EmployeeDirectory() {
                       >
                         {emp.status}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <button
+                        onClick={() => {
+                          setSelectedEmployeeForProfile(emp);
+                          setProfileModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/20 text-xs font-bold transition shadow-sm"
+                        title="View Employee Profile & Manage Documents"
+                      >
+                        <FileCheck2 className="w-3.5 h-3.5" />
+                        Profile & Docs
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -504,6 +531,20 @@ export default function EmployeeDirectory() {
           </div>
         </div>
       )}
+
+      {/* Employee Profile & Documents Modal */}
+      {selectedEmployeeForProfile && (
+        <EmployeeProfileModal
+          employee={selectedEmployeeForProfile}
+          isOpen={profileModalOpen}
+          initialTab="DOCUMENTS"
+          onClose={() => {
+            setProfileModalOpen(false);
+            setSelectedEmployeeForProfile(null);
+          }}
+        />
+      )}
     </div>
   );
 }
+

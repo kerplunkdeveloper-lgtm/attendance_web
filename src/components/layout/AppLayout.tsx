@@ -29,6 +29,7 @@ import {
   Radio,
   Sparkles,
   Layers,
+  FileCheck2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { notificationsApi } from "@/lib/api";
@@ -72,6 +73,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       items: [
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Smart Punch & Clock", href: "/attendance", icon: Clock },
+        { label: "My Profile & Docs", href: "/profile", icon: FileCheck2 },
         { label: "Leave Management", href: "/leaves", icon: CalendarDays },
         { label: "Payroll & Payslips", href: "/payroll", icon: Receipt },
       ],
@@ -354,15 +356,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* User Profile Pill */}
           <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold text-xs flex items-center justify-center uppercase shadow">
-              {user?.employee?.firstName?.[0] || user?.email?.[0] || "U"}
-            </div>
-            <div className="hidden xl:block text-left">
-              <p className="text-xs font-semibold text-slate-200 truncate max-w-[130px]">
-                {user?.employee?.firstName ? `${user.employee.firstName} ${user.employee.lastName || ""}` : user?.email}
-              </p>
-              <p className="text-[10px] text-indigo-400 font-medium uppercase tracking-wider">{role}</p>
-            </div>
+            <Link
+              href="/profile"
+              className="flex items-center gap-2.5 hover:opacity-85 transition group"
+              title="View My Profile & Documents"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-400 text-white font-bold text-xs flex items-center justify-center uppercase shadow group-hover:ring-2 group-hover:ring-indigo-400/50 transition">
+                {user?.employee?.firstName?.[0] || user?.email?.[0] || "U"}
+              </div>
+              <div className="hidden xl:block text-left">
+                <p className="text-xs font-semibold text-slate-200 group-hover:text-indigo-300 transition truncate max-w-[130px]">
+                  {user?.employee?.firstName ? `${user.employee.firstName} ${user.employee.lastName || ""}` : user?.email}
+                </p>
+                <p className="text-[10px] text-indigo-400 font-medium uppercase tracking-wider">{role}</p>
+              </div>
+            </Link>
             <button
               onClick={logout}
               className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
