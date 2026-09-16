@@ -209,8 +209,34 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       const res = await attendanceApi.getTodayStatus();
-      if (res?.success) {
-        setTodayStatus(res.data || res);
+      const raw = res?.data || res;
+      if (raw) {
+        const hasCheckedIn = Boolean(
+          raw.hasCheckedIn ||
+          raw.clockedIn ||
+          raw.attendance?.checkIn
+        );
+        const hasCheckedOut = Boolean(
+          raw.hasCheckedOut ||
+          raw.attendance?.checkOut
+        );
+        const isOnBreak = Boolean(raw.isOnBreak);
+        const isWorkFromHome = Boolean(
+          raw.isWorkFromHome ||
+          raw.attendance?.status === "WORK_FROM_HOME" ||
+          raw.attendance?.wfhNote?.toLowerCase().includes("home")
+        );
+
+        setTodayStatus({
+          hasCheckedIn,
+          hasCheckedOut,
+          isOnBreak,
+          isWorkFromHome,
+          attendance: raw.attendance,
+          totalBreakMinutes: raw.totalBreakMinutes || raw.attendance?.breakMinutes || 0,
+          workedMinutesToday: raw.attendance?.workingMinutes || 0,
+          shift: raw.employee?.shift || raw.shift,
+        });
       }
     } catch (err: any) {
       console.warn("Could not fetch today status:", err.message);

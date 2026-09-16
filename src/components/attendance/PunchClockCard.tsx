@@ -19,6 +19,7 @@ import {
   Briefcase,
   Car,
   Building2,
+  Clapperboard,
   Sparkles,
   ShieldCheck,
   Check,
@@ -27,48 +28,50 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { formatTime, formatDurationMinutes } from "@/lib/utils";
 
-type WorkMode = "OFFICE" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
+export type WorkMode = "OFFICE" | "SHOOT" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
 
 interface WorkModeItem {
   id: WorkMode;
   label: string;
   sublabel: string;
   icon: React.ComponentType<{ className?: string }>;
-  color: string;
   badgeClass: string;
 }
 
 const WORK_MODES: WorkModeItem[] = [
   {
     id: "OFFICE",
-    label: "Office / Shoot",
-    sublabel: "Studio / HQ",
+    label: "Office HQ",
+    sublabel: "Desk / Office Work",
     icon: Building2,
-    color: "from-indigo-600 to-cyan-500",
     badgeClass: "bg-indigo-500/15 border-indigo-500/30 text-indigo-300",
+  },
+  {
+    id: "SHOOT",
+    label: "On-Site Shoot",
+    sublabel: "Studio / Outdoor Shoot",
+    icon: Clapperboard,
+    badgeClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
   },
   {
     id: "WORK_FROM_HOME",
     label: "Work From Home",
     sublabel: "Remote",
     icon: Home,
-    color: "from-emerald-600 to-teal-500",
     badgeClass: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
   },
   {
     id: "CLIENT_VISIT",
     label: "Client Visit",
-    sublabel: "On-site Meeting",
+    sublabel: "Client Location",
     icon: Briefcase,
-    color: "from-amber-600 to-orange-500",
-    badgeClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
+    badgeClass: "bg-sky-500/15 border-sky-500/30 text-sky-300",
   },
   {
     id: "TRAVEL",
     label: "Travel / Field",
     sublabel: "Transit / Field Work",
     icon: Car,
-    color: "from-purple-600 to-pink-500",
     badgeClass: "bg-purple-500/15 border-purple-500/30 text-purple-300",
   },
 ];
@@ -102,13 +105,35 @@ export default function PunchClockCard() {
     return () => clearInterval(timer);
   }, []);
 
-  const isCheckedIn = todayStatus?.hasCheckedIn && !todayStatus?.hasCheckedOut;
-  const hasCheckedOut = todayStatus?.hasCheckedOut;
-  const isOnBreak = todayStatus?.isOnBreak;
-  const isWfh = todayStatus?.isWorkFromHome;
+  // Robust check for whether the employee is currently clocked in:
+  const isCheckedIn = Boolean(
+    todayStatus?.hasCheckedIn ||
+    todayStatus?.attendance?.checkIn ||
+    (todayStatus as any)?.clockedIn
+  ) && !Boolean(
+    todayStatus?.hasCheckedOut ||
+    todayStatus?.attendance?.checkOut
+  );
 
-  const branch = user?.employee?.branch;
+  const hasCheckedOut = Boolean(
+    todayStatus?.hasCheckedOut ||
+    todayStatus?.attendance?.checkOut
+  );
+
+  const isOnBreak = todayStatus?.isOnBreak;
   const shift = user?.employee?.shift;
+
+  // Detect mode from recorded attendance if checked in
+  const recordedNote = todayStatus?.attendance?.wfhNote || "";
+  const detectedActiveMode = recordedNote.includes("SHOOT")
+    ? "On-Site Shoot"
+    : recordedNote.includes("Home") || todayStatus?.isWorkFromHome
+    ? "Work From Home"
+    : recordedNote.includes("CLIENT")
+    ? "Client Visit"
+    : recordedNote.includes("TRAVEL")
+    ? "Travel / Field"
+    : "Office HQ";
 
   const openConfirmModal = (action: "CHECK_IN" | "CHECK_OUT") => {
     setPendingAction(action);
@@ -117,7 +142,7 @@ export default function PunchClockCard() {
 
   const handleConfirmPunch = async () => {
     const options: PunchOptions = {
-      workMode: selectedWorkMode,
+      workMode: selectedWorkMode as any,
       note: punchNote.trim() || undefined,
     };
 
@@ -139,7 +164,7 @@ export default function PunchClockCard() {
 
   return (
     <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
-      {/* Background soft ambient glow */}
+      {/* Ambient background glow */}
       <div className="absolute -top-24 -right-24 w-72 h-72 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -217,50 +242,74 @@ export default function PunchClockCard() {
         )}
       </AnimatePresence>
 
-      {/* ── Mode Selection Pills Bar ────────────────────────────────────── */}
-      <div className="relative z-10 mb-6 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
-        <div className="flex items-center justify-between text-xs mb-2.5 px-1">
-          <span className="font-bold text-slate-300 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            Select Today's Work Mode:
-          </span>
-          <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Location Eligible Anywhere
-          </span>
-        </div>
+      {/* ── Mode Selection Bar (Visible when not clocked in) ─────────────── */}
+      {!isCheckedIn && !hasCheckedOut && (
+        <div className="relative z-10 mb-6 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div className="flex items-center justify-between text-xs mb-2.5 px-1">
+            <span className="font-bold text-slate-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              Choose Work Mode for Today:
+            </span>
+            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Location Eligible Anywhere
+            </span>
+          </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {WORK_MODES.map((mode) => {
-            const Icon = mode.icon;
-            const isSelected = selectedWorkMode === mode.id;
-            return (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => setSelectedWorkMode(mode.id)}
-                className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all ${
-                  isSelected
-                    ? "bg-indigo-600/20 border-indigo-500 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50 scale-[1.01]"
-                    : "bg-slate-800/60 border-slate-750 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    isSelected ? "bg-indigo-500 text-white" : "bg-slate-700/60 text-slate-400"
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {WORK_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isSelected = selectedWorkMode === mode.id;
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setSelectedWorkMode(mode.id)}
+                  className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? "bg-indigo-600/25 border-indigo-500 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50 scale-[1.01]"
+                      : "bg-slate-800/60 border-slate-750 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold leading-tight truncate">{mode.label}</p>
-                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{mode.sublabel}</p>
-                </div>
-              </button>
-            );
-          })}
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      isSelected ? "bg-indigo-500 text-white" : "bg-slate-700/60 text-slate-400"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold leading-tight truncate">{mode.label}</p>
+                    <p className="text-[9px] text-slate-400 truncate mt-0.5">{mode.sublabel}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Active Status Indicator (When Clocked In) ─────────────────────── */}
+      {isCheckedIn && (
+        <div className="relative z-10 mb-6 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-emerald-300 text-sm">
+              Currently Clocked In & Active
+            </span>
+            <span className="text-slate-400">·</span>
+            <span className="px-2 py-0.5 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-200 font-semibold">
+              Mode: {detectedActiveMode}
+            </span>
+          </div>
+          <div className="text-slate-400 font-mono">
+            Started: {todayStatus?.attendance?.checkIn ? formatTime(todayStatus.attendance.checkIn) : "Today"}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
         {/* Left: Real-time Live Clock Dial */}
@@ -354,6 +403,8 @@ export default function PunchClockCard() {
                 disabled={isActionLoading}
                 className="relative w-40 h-40 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-rose-600 via-red-500 to-amber-500 p-1.5 shadow-xl shadow-rose-500/25 flex items-center justify-center group disabled:opacity-50"
               >
+                {/* Pulse ring for active clocked in state */}
+                <div className="absolute inset-0 rounded-full border-2 border-rose-400/40 animate-pulse pointer-events-none" />
                 <div className="w-full h-full rounded-full bg-[#1e1014] flex flex-col items-center justify-center transition group-hover:bg-[#281318]">
                   {isActionLoading ? (
                     <Loader2 className="w-10 h-10 animate-spin text-rose-400" />
@@ -410,6 +461,8 @@ export default function PunchClockCard() {
             <p className="text-lg font-bold text-slate-200">
               {todayStatus?.attendance?.checkIn
                 ? formatTime(todayStatus.attendance.checkIn)
+                : isCheckedIn
+                ? "Clocked In"
                 : "-- : --"}
             </p>
           </div>
@@ -433,10 +486,9 @@ export default function PunchClockCard() {
           </div>
 
           <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/80">
-            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Active Work Mode</p>
-            <p className="text-sm font-bold text-indigo-400 flex items-center gap-1.5">
-              <ActiveIcon className="w-4 h-4 text-indigo-300" />
-              {activeModeObj.label}
+            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Today's Mode</p>
+            <p className="text-sm font-bold text-indigo-400 flex items-center gap-1.5 truncate">
+              {isCheckedIn ? detectedActiveMode : activeModeObj.label}
             </p>
           </div>
         </div>
@@ -484,42 +536,44 @@ export default function PunchClockCard() {
               </button>
             </div>
 
-            {/* Mode Confirmation Selector */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-300">
-                Work Mode for this Punch:
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {WORK_MODES.map((mode) => {
-                  const Icon = mode.icon;
-                  const isSelected = selectedWorkMode === mode.id;
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => setSelectedWorkMode(mode.id)}
-                      className={`flex items-center gap-2.5 p-3 rounded-2xl border text-left transition-all ${
-                        isSelected
-                          ? "bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50"
-                          : "bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isSelected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"
+            {/* Mode Confirmation Selector (only needed on Check In) */}
+            {pendingAction === "CHECK_IN" && (
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-300">
+                  Select Work Mode:
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {WORK_MODES.map((mode) => {
+                    const Icon = mode.icon;
+                    const isSelected = selectedWorkMode === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => setSelectedWorkMode(mode.id)}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? "bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50"
+                            : "bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200"
                         }`}
                       >
-                        <Icon className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold truncate">{mode.label}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{mode.sublabel}</p>
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold truncate">{mode.label}</p>
+                          <p className="text-[9px] text-slate-400 truncate">{mode.sublabel}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Location & Time Status Box */}
             <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
