@@ -1,8 +1,18 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://backendapiattendance-production.up.railway.app/api";
+function getApiBaseUrl(): string {
+  let url = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  if (!url) {
+    return "https://backendapiattendance-production.up.railway.app/api";
+  }
+  url = url.replace(/\/+$/, "");
+  if (!url.endsWith("/api")) {
+    url = `${url}/api`;
+  }
+  return url;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
