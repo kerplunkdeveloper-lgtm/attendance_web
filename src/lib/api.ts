@@ -5,6 +5,10 @@ function getApiBaseUrl(): string {
   if (!url) {
     return "https://backendapiattendance-production.up.railway.app/api";
   }
+  // If protocol is missing, prepend https:// so the browser does not treat it as a relative path
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    url = `https://${url}`;
+  }
   url = url.replace(/\/+$/, "");
   if (!url.endsWith("/api")) {
     url = `${url}/api`;
