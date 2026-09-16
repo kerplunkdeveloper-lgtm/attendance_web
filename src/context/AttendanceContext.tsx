@@ -32,7 +32,7 @@ interface GeoCoordinates {
 type SyncStatus = "idle" | "syncing" | "synced" | "error";
 
 export interface PunchOptions {
-  workMode?: "OFFICE" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
+  workMode?: "OFFICE" | "SHOOT" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
   note?: string;
 }
 
@@ -320,7 +320,14 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
         // ONLINE — call API normally
         const res = await apiCall();
         if (res?.success) {
-          toast.success(res.message || successMessage);
+          const confirmMsg = res.message ? `✅ ${res.message}` : successMessage;
+          toast.success(confirmMsg, {
+            duration: 5000,
+            description:
+              type === "CHECK_IN"
+                ? "Attendance recorded. Your shift is now active."
+                : "Shift completed. Working hours safely logged to timesheet.",
+          });
           triggerCelebration();
           await fetchTodayStatus();
           return true;
@@ -338,7 +345,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
             accuracy: coords?.accuracy,
           });
           await refreshPendingCount();
-          toast.warning(`📴 Network error — ${successMessage} saved offline.`, { duration: 4000 });
+          toast.warning(`📴 Network offline — ${successMessage} saved locally.`, { duration: 5000 });
           return true;
         }
         toast.error(err.response?.data?.message || err.message || `${type} failed`);
@@ -355,16 +362,21 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
   const checkIn = useCallback(
     async (options?: PunchOptions): Promise<boolean> => {
       const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
+      const modeLabel =
+        options?.workMode === "SHOOT"
+          ? "On-Site Shoot"
+          : options?.workMode === "WORK_FROM_HOME"
+          ? "Work From Home"
+          : options?.workMode === "CLIENT_VISIT"
+          ? "Client Visit"
+          : options?.workMode === "TRAVEL"
+          ? "Travel / Field"
+          : "Office HQ";
+
       return handlePunch(
         "CHECK_IN",
         () => attendanceApi.checkIn({ ...coords, ...options }),
-        options?.workMode === "WORK_FROM_HOME"
-          ? "WFH Clock-in recorded!"
-          : options?.workMode === "CLIENT_VISIT"
-          ? "Client Visit Clock-in recorded!"
-          : options?.workMode === "TRAVEL"
-          ? "Travel Clock-in recorded!"
-          : "Clock-in recorded!",
+        `Check-in Confirmed! Started shift in ${modeLabel} mode.`,
         coords
       );
     },
@@ -377,7 +389,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
       return handlePunch(
         "CHECK_OUT",
         () => attendanceApi.checkOut({ ...coords, ...options }),
-        "Clock-out recorded!",
+        "Check-out Confirmed! Shift concluded successfully.",
         coords
       );
     },

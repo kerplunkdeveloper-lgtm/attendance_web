@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Home,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Timer,
   Navigation,
@@ -241,6 +242,60 @@ export default function PunchClockCard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Active Confirmation Alert Banner ──────────────────────────────── */}
+      {isCheckedIn && (
+        <div className="relative z-10 mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
+                  Clock-In Confirmed & Active
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  On Duty
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Punched in at <strong className="text-white font-mono">{todayStatus?.attendance?.checkIn ? formatTime(todayStatus.attendance.checkIn) : "--:--"}</strong> • Mode: <strong className="text-emerald-300">{detectedActiveMode}</strong>
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] text-slate-400">
+            Click <strong>Clock Out</strong> when your shift ends
+          </span>
+        </div>
+      )}
+
+      {hasCheckedOut && (
+        <div className="relative z-10 mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-indigo-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wide">
+                  Clock-Out Confirmed
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 text-[10px] font-semibold">
+                  Shift Completed
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Punched out at <strong className="text-white font-mono">{todayStatus?.attendance?.checkOut ? formatTime(todayStatus.attendance.checkOut) : "--:--"}</strong> • Total hours safely saved to timesheet.
+              </p>
+            </div>
+          </div>
+          <span className="text-[11px] text-indigo-300 font-semibold">
+            See you tomorrow! 👋
+          </span>
+        </div>
+      )}
 
       {/* ── Mode Selection Bar (Visible when not clocked in) ─────────────── */}
       {!isCheckedIn && !hasCheckedOut && (
@@ -523,7 +578,9 @@ export default function PunchClockCard() {
                     {pendingAction === "CHECK_IN" ? "Confirm Clock-In" : "Confirm Clock-Out"}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Verify work mode and location before recording your attendance
+                    {pendingAction === "CHECK_IN"
+                      ? "Verify your work mode and punch time to begin your shift"
+                      : "Confirm conclusion of shift and record total hours"}
                   </p>
                 </div>
               </div>
@@ -534,6 +591,33 @@ export default function PunchClockCard() {
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Prompt Confirmation Message Box */}
+            <div
+              className={`p-3.5 rounded-2xl border flex items-start gap-3 ${
+                pendingAction === "CHECK_IN"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              }`}
+            >
+              {pendingAction === "CHECK_IN" ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              )}
+              <div className="space-y-0.5 text-xs">
+                <p className="font-bold text-white">
+                  {pendingAction === "CHECK_IN"
+                    ? "Are you ready to clock in for today?"
+                    : "Are you sure you want to clock out for today?"}
+                </p>
+                <p className="text-slate-300 leading-relaxed">
+                  {pendingAction === "CHECK_IN"
+                    ? `Your check-in will be logged at ${currentTime.toLocaleTimeString("en-IN", { hour12: true })} under "${activeModeObj.label}". Click confirm below to record your shift start.`
+                    : `Your check-out will be recorded at ${currentTime.toLocaleTimeString("en-IN", { hour12: true })}. This will finalize your shift hours and save your timesheet.`}
+                </p>
+              </div>
             </div>
 
             {/* Mode Confirmation Selector (only needed on Check In) */}
