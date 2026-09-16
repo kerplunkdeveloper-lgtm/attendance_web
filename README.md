@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# attendance_web
 
-## Getting Started
+**WorkPulse Enterprise Suite — Modern Next.js Frontend Application**
 
-First, run the development server:
+A comprehensive, production-ready enterprise workforce management platform built with Next.js 15, TypeScript, Tailwind CSS, Framer Motion, and IndexedDB.
 
+---
+
+## 🌟 Key Capabilities
+
+- **Smart GPS Geofenced Attendance**: Precise branch coordinate verification, boundary checks, and geofence bypass auditing.
+- **Offline-First Punch Clock Engine**: IndexedDB client queue for recording punches with millisecond-exact timestamps during internet dropouts, with automated batch synchronization upon reconnection.
+- **Dynamic Rostering & Shifts**: Customizable shifts, grace periods, rotational rosters, and per-day shift overrides with automated rest-day overtime calculations.
+- **Automated Statutory Payroll**: CTC breakdown, PF/ESI statutory formulas, professional tax, leave deduction tracking, and one-click PDF payslip generator.
+- **Organization & Plan Licensing**: Multi-tiered subscription licensing with cryptographic email unlock codes (`WP-XXXX-XXXX-XXXX`).
+- **1-Click Employee Invitation**: Automated credential generation, welcome email dispatch, and forced first-login password reset.
+- **Role-Based Access Control (RBAC)**: Distinct permissions for Super Admin, Company Admin, Manager, and Employee.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment
+Create a `.env.local` file:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Run Development Server
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Navigate to `http://localhost:3000` to view the application.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🛠️ Tech Stack
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS, Glassmorphism, CSS Variables
+- **Animations**: Framer Motion, Canvas Confetti
+- **Icons**: Lucide React
+- **Notifications**: Sonner
+- **Client Storage**: Browser IndexedDB (`workpulse_offline`)
