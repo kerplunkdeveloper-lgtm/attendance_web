@@ -21,8 +21,11 @@ import {
   Calendar,
   Lock,
   Key,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function DashboardOverview() {
@@ -31,6 +34,7 @@ export default function DashboardOverview() {
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [presentDropdownOpen, setPresentDropdownOpen] = useState(false);
 
   const isPlanLocked = Boolean(user?.planLocked || user?.organization?.planLocked);
   const isAdmin = role === "COMPANY_ADMIN" || role === "SUPER_ADMIN";
@@ -162,20 +166,43 @@ export default function DashboardOverview() {
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition">
+        {/* Present Today Card - Interactive Dropdown */}
+        <div
+          onClick={() => setPresentDropdownOpen(!presentDropdownOpen)}
+          className={`glass-card rounded-2xl p-5 border transition cursor-pointer relative group ${
+            presentDropdownOpen
+              ? "border-emerald-500/60 bg-emerald-950/20 ring-1 ring-emerald-500/40"
+              : "border-slate-800 hover:border-emerald-500/40 hover:bg-slate-850"
+          }`}
+        >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase">Present Today</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
+            <span className="text-xs font-semibold text-slate-400 uppercase flex items-center gap-1.5">
+              Present Today
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-normal">
+                Click details
+              </span>
+            </span>
+            <div className="flex items-center gap-1">
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-105 transition">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              {presentDropdownOpen ? (
+                <ChevronUp className="w-4 h-4 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-emerald-400 transition" />
+              )}
             </div>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-black text-white">
               {summary?.presentCount ?? (loading ? "-" : "6")}
             </span>
-            <span className="text-xs text-emerald-400 font-semibold">Active at desk</span>
+            <span className="text-xs text-emerald-400 font-semibold">Active on duty</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">Geofence verified punches</p>
+          <p className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+            <span>Tap to view Leave & Late breakdown</span>
+            <span className="text-emerald-400 font-bold">▾</span>
+          </p>
         </div>
 
         <div className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition">
@@ -194,7 +221,10 @@ export default function DashboardOverview() {
           <p className="text-[11px] text-slate-400 mt-1">Manager approved telecommute</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition">
+        <div
+          onClick={() => setPresentDropdownOpen(true)}
+          className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-indigo-500/40 hover:bg-slate-850 cursor-pointer transition"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-400 uppercase">On Leave / Rest</span>
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
@@ -210,7 +240,10 @@ export default function DashboardOverview() {
           <p className="text-[11px] text-slate-400 mt-1">Scheduled time off</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-slate-700 transition">
+        <div
+          onClick={() => setPresentDropdownOpen(true)}
+          className="glass-card rounded-2xl p-5 border border-slate-800 hover:border-amber-500/40 hover:bg-slate-850 cursor-pointer transition"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-slate-400 uppercase">Late Arrivals</span>
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
@@ -225,6 +258,126 @@ export default function DashboardOverview() {
           </div>
           <p className="text-[11px] text-slate-400 mt-1">15 min grace policy check</p>
         </div>
+
+        {/* Present Today Dropdown Breakdown Drawer */}
+        <AnimatePresence>
+          {presentDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              className="col-span-2 sm:col-span-2 lg:col-span-4 overflow-hidden"
+            >
+              <div className="p-5 rounded-3xl bg-[#0b1220] border border-emerald-500/30 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        Today's Attendance Status Breakdown
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
+                          Live Summary
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        Select a category below to inspect staff on duty, on leave, or with late arrivals
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPresentDropdownOpen(false)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 transition"
+                  >
+                    Close <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Category 1: Present Today */}
+                  <Link
+                    href="/attendance?status=PRESENT"
+                    className="p-4 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <CheckCircle2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-emerald-300 group-hover:text-white transition">
+                          Present Today
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Office, Shoot, Client Visit & Travel
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-emerald-400 font-mono">
+                        {summary?.presentCount ?? 6}
+                      </span>
+                      <span className="block text-[10px] text-slate-400">Active</span>
+                    </div>
+                  </Link>
+
+                  {/* Category 2: On Leave */}
+                  <Link
+                    href="/attendance?status=ON_LEAVE"
+                    className="p-4 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 transition flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                        <CalendarDays className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-indigo-300 group-hover:text-white transition">
+                          On Leave
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Scheduled Approved Leaves
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-indigo-300 font-mono">
+                        {summary?.onLeaveCount ?? 1}
+                      </span>
+                      <span className="block text-[10px] text-slate-400">Off Duty</span>
+                    </div>
+                  </Link>
+
+                  {/* Category 3: Late Arrivals */}
+                  <Link
+                    href="/attendance?status=LATE"
+                    className="p-4 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-amber-300 group-hover:text-white transition">
+                          Late Arrivals
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Exceeded Grace Window
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-amber-400 font-mono">
+                        {summary?.lateCount ?? 1}
+                      </span>
+                      <span className="block text-[10px] text-slate-400">Lates</span>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Two Column Layout: Quick Actions & Recent Activity */}

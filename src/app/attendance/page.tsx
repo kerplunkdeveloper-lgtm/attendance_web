@@ -1,5 +1,6 @@
 "use client";
 
+import React, { Suspense } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/layout/AppLayout";
 import PunchClockCard from "@/components/attendance/PunchClockCard";
@@ -22,7 +23,9 @@ export default function AttendancePage() {
           </div>
 
           <PunchClockCard />
-          <AttendanceHistoryView />
+          <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading attendance view...</div>}>
+            <AttendanceHistoryView />
+          </Suspense>
         </div>
       </AppLayout>
     </ProtectedRoute>

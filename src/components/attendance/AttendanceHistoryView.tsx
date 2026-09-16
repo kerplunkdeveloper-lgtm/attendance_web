@@ -5,6 +5,7 @@ import { Attendance, AttendanceStatus } from "@/types";
 import { attendanceApi } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatTime, formatDurationMinutes } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar,
   Filter,
@@ -16,18 +17,32 @@ import {
   Plus,
   RefreshCw,
   Edit3,
+  ChevronDown,
+  ChevronUp,
+  CalendarDays,
 } from "lucide-react";
 import RegularizationModal from "./RegularizationModal";
 import { toast } from "sonner";
 
 export default function AttendanceHistoryView() {
   const { user, role } = useAuth();
+  const searchParams = useSearchParams();
+  const statusParam = searchParams?.get("status");
+
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState<boolean>(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
   const [regularizationModalOpen, setRegularizationModalOpen] = useState<boolean>(false);
   const [adminMarkModalOpen, setAdminMarkModalOpen] = useState<boolean>(false);
+
+  // Sync URL search param if present (e.g. /attendance?status=ON_LEAVE or /attendance?status=LATE)
+  useEffect(() => {
+    if (statusParam) {
+      setFilterStatus(statusParam.toUpperCase());
+    }
+  }, [statusParam]);
 
   // Admin mark state
   const [adminEmployeeId, setAdminEmployeeId] = useState("");
@@ -121,29 +136,68 @@ export default function AttendanceHistoryView() {
     <div className="space-y-6">
       {/* Metric Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass-card rounded-2xl p-4 border border-slate-800">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            Present Days
+        <button
+          type="button"
+          onClick={() => setFilterStatus(filterStatus === "PRESENT" ? "ALL" : "PRESENT")}
+          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
+            filterStatus === "PRESENT"
+              ? "border-emerald-500 bg-emerald-950/20 ring-1 ring-emerald-500/40"
+              : "border-slate-800 hover:border-emerald-500/40"
+          }`}
+        >
+          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              Present Days
+            </span>
+            <span className="text-[9px] text-emerald-400 font-mono">
+              {filterStatus === "PRESENT" ? "Active" : "Filter"}
+            </span>
           </p>
           <p className="text-2xl font-bold text-white">{totalPresent}</p>
-        </div>
+        </button>
 
-        <div className="glass-card rounded-2xl p-4 border border-slate-800">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            Late Clock-Ins
+        <button
+          type="button"
+          onClick={() => setFilterStatus(filterStatus === "LATE" ? "ALL" : "LATE")}
+          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
+            filterStatus === "LATE"
+              ? "border-amber-500 bg-amber-950/20 ring-1 ring-amber-500/40"
+              : "border-slate-800 hover:border-amber-500/40"
+          }`}
+        >
+          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              Late Clock-Ins
+            </span>
+            <span className="text-[9px] text-amber-400 font-mono">
+              {filterStatus === "LATE" ? "Active" : "Filter"}
+            </span>
           </p>
           <p className="text-2xl font-bold text-amber-400">{totalLate}</p>
-        </div>
+        </button>
 
-        <div className="glass-card rounded-2xl p-4 border border-slate-800">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <Home className="w-3.5 h-3.5 text-sky-400" />
-            WFH Remote Days
+        <button
+          type="button"
+          onClick={() => setFilterStatus(filterStatus === "WORK_FROM_HOME" ? "ALL" : "WORK_FROM_HOME")}
+          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
+            filterStatus === "WORK_FROM_HOME"
+              ? "border-sky-500 bg-sky-950/20 ring-1 ring-sky-500/40"
+              : "border-slate-800 hover:border-sky-500/40"
+          }`}
+        >
+          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5 text-sky-400" />
+              WFH Remote Days
+            </span>
+            <span className="text-[9px] text-sky-400 font-mono">
+              {filterStatus === "WORK_FROM_HOME" ? "Active" : "Filter"}
+            </span>
           </p>
           <p className="text-2xl font-bold text-sky-400">{totalWfh}</p>
-        </div>
+        </button>
 
         <div className="glass-card rounded-2xl p-4 border border-slate-800">
           <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
@@ -162,16 +216,24 @@ export default function AttendanceHistoryView() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="glass-input rounded-xl px-3 py-1.5 text-xs text-slate-200"
+            className="glass-input rounded-xl px-3 py-1.5 text-xs text-slate-200 bg-slate-900 border border-slate-700"
           >
             <option value="ALL">All Statuses</option>
-            <option value="PRESENT">Present</option>
-            <option value="LATE">Late</option>
-            <option value="HALF_DAY">Half Day</option>
-            <option value="WORK_FROM_HOME">Work From Home</option>
+            <option value="PRESENT">Present Today</option>
             <option value="ON_LEAVE">On Leave</option>
+            <option value="LATE">Late Arrivals</option>
+            <option value="WORK_FROM_HOME">Work From Home</option>
+            <option value="HALF_DAY">Half Day</option>
             <option value="ABSENT">Absent</option>
           </select>
+          {filterStatus !== "ALL" && (
+            <button
+              onClick={() => setFilterStatus("ALL")}
+              className="text-[11px] text-indigo-400 hover:text-indigo-300 underline ml-1"
+            >
+              Reset
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -206,7 +268,138 @@ export default function AttendanceHistoryView() {
                 <th className="py-3.5 px-4">Punch Out</th>
                 <th className="py-3.5 px-4">Work Hours</th>
                 <th className="py-3.5 px-4">Breaks</th>
-                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 relative">
+                  <button
+                    type="button"
+                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                    className="flex items-center gap-1.5 hover:text-white transition uppercase font-semibold text-left focus:outline-none"
+                  >
+                    <span>Status</span>
+                    {filterStatus !== "ALL" && (
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-300 lowercase font-bold">
+                        {filterStatus}
+                      </span>
+                    )}
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        statusDropdownOpen ? "rotate-180 text-indigo-400" : "text-slate-400"
+                      }`}
+                    />
+                  </button>
+
+                  {/* Status Dropdown */}
+                  {statusDropdownOpen && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-full left-0 mt-2 w-52 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl p-2 z-50 text-left normal-case tracking-normal backdrop-blur-xl"
+                    >
+                      <div className="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase border-b border-slate-800">
+                        Filter Column
+                      </div>
+                      <div className="py-1 space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus("ALL");
+                            setStatusDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
+                            filterStatus === "ALL"
+                              ? "bg-indigo-600 text-white font-semibold"
+                              : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span>All Statuses</span>
+                          <span className="text-[10px] opacity-70 font-mono">{attendances.length}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus("PRESENT");
+                            setStatusDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
+                            filterStatus === "PRESENT"
+                              ? "bg-emerald-600 text-white font-semibold"
+                              : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            Present Today
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                            {totalPresent}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus("ON_LEAVE");
+                            setStatusDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
+                            filterStatus === "ON_LEAVE"
+                              ? "bg-indigo-600 text-white font-semibold"
+                              : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
+                            On Leave
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                            {attendances.filter((a) => a.status === "ON_LEAVE").length}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus("LATE");
+                            setStatusDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
+                            filterStatus === "LATE"
+                              ? "bg-amber-600 text-white font-semibold"
+                              : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            Late Arrivals
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                            {totalLate}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus("WORK_FROM_HOME");
+                            setStatusDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
+                            filterStatus === "WORK_FROM_HOME"
+                              ? "bg-sky-600 text-white font-semibold"
+                              : "text-slate-300 hover:bg-slate-800"
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <Home className="w-3.5 h-3.5 text-sky-400" />
+                            Remote WFH
+                          </span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">
+                            {totalWfh}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </th>
                 <th className="py-3.5 px-4 text-right">Regularization</th>
               </tr>
             </thead>
