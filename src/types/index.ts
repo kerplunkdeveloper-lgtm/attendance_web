@@ -414,3 +414,131 @@ export interface EmployeeDocumentsData {
   documents: EmployeeDocument[];
 }
 
+// ─── Offboarding & Full & Final (F&F) Types ──────────────────────────────────
+export type ExitType = "RESIGNATION" | "TERMINATION" | "RETIREMENT" | "MUTUAL_SEPARATION";
+
+export type ExitStatus =
+  | "RESIGNED"
+  | "UNDER_HR_REVIEW"
+  | "NOTICE_PERIOD"
+  | "CLEARANCE_IN_PROGRESS"
+  | "SETTLEMENT_CALCULATED"
+  | "SETTLED"
+  | "TERMINATED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+export type ClearanceDept =
+  | "IT_ASSETS"
+  | "REPORTING_MANAGER"
+  | "FINANCE_PAYROLL"
+  | "HR_OPERATIONS"
+  | "ADMIN_FACILITY";
+
+export type ClearanceItemStatus = "PENDING" | "CLEARED" | "RECOVERABLE_DUE" | "WAIVED";
+
+export interface EmployeeClearance {
+  id: string;
+  organizationId: string;
+  exitId: string;
+  department: ClearanceDept;
+  itemName: string;
+  itemDescription?: string | null;
+  status: ClearanceItemStatus;
+  recoveryAmount: number;
+  clearedBy?: string | null;
+  clearedAt?: string | null;
+  remarks?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExitInterview {
+  id: string;
+  organizationId: string;
+  exitId: string;
+  reasonCategory?: string | null;
+  feedbackRatings?: {
+    managementRating?: number;
+    cultureRating?: number;
+    payRating?: number;
+    workLifeRating?: number;
+    [key: string]: any;
+  } | null;
+  whatWeDidWell?: string | null;
+  whatCanWeImprove?: string | null;
+  wouldRecommendCompany: boolean;
+  conductedBy?: string | null;
+  conductedAt?: string | null;
+  notes?: string | null;
+}
+
+export interface FinalSettlement {
+  id: string;
+  organizationId: string;
+  exitId: string;
+  employeeId: string;
+  workedDaysInFinalMonth: number;
+  finalSalaryPayable: number;
+  overtimePay: number;
+  leaveEncashmentDays: number;
+  leaveEncashmentAmount: number;
+  pendingReimbursements: number;
+  gratuityOrBonus: number;
+  otherEarnings: number;
+  lopDays: number;
+  lopDeduction: number;
+  noticeShortfallDays: number;
+  noticeShortfallDeduction: number;
+  assetRecoveryAmount: number;
+  loanOrAdvanceRecovery: number;
+  statutoryDeductions: number;
+  otherDeductions: number;
+  grossEarnings: number;
+  totalDeductions: number;
+  netPayable: number;
+  status: "DRAFT" | "APPROVED" | "DISBURSED";
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  disbursedAt?: string | null;
+  paymentReference?: string | null;
+  remarks?: string | null;
+}
+
+export interface EmployeeExit {
+  id: string;
+  organizationId: string;
+  employeeId: string;
+  exitType: ExitType;
+  status: ExitStatus;
+  resignationDate: string;
+  preferredLastWorkingDate?: string | null;
+  approvedLastWorkingDate?: string | null;
+  noticePeriodDays: number;
+  isNoticeWaived: boolean;
+  waivedNoticeDays: number;
+  reason: string;
+  employeeComments?: string | null;
+  hrNotes?: string | null;
+  hrReviewerId?: string | null;
+  hrReviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  employee: Employee;
+  clearances?: EmployeeClearance[];
+  interview?: ExitInterview | null;
+  finalSettlement?: FinalSettlement | null;
+  metrics?: {
+    totalClearances: number;
+    clearedCount: number;
+    pendingClearances: number;
+    clearanceProgress: number;
+    hasSettlement: boolean;
+    settlementStatus: string;
+    netSettlementPayable?: number | null;
+    allClearancesApproved?: boolean;
+  };
+  clearancesByDept?: Record<string, EmployeeClearance[]>;
+}
+
+

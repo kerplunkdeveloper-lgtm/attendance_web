@@ -30,6 +30,7 @@ import {
   Sparkles,
   Layers,
   FileCheck2,
+  UserMinus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { notificationsApi } from "@/lib/api";
@@ -114,6 +115,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           label: "Overtime & Comp-Off",
           href: "/overtime",
           icon: Layers,
+        },
+        {
+          label: "Offboarding & F&F",
+          href: "/offboarding",
+          icon: UserMinus,
+          roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"],
         },
       ],
     },

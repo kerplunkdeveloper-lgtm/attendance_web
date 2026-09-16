@@ -598,3 +598,47 @@ export const overtimeApi = {
     return res.data;
   },
 };
+
+export const offboardingApi = {
+  list: async (params?: any) => {
+    const res = await api.get("/offboarding", { params });
+    return res.data;
+  },
+  getById: async (id: string) => {
+    const res = await api.get(`/offboarding/${id}`);
+    return res.data;
+  },
+  getMyExit: async () => {
+    const res = await api.get("/offboarding/my-exit");
+    return res.data;
+  },
+  initiate: async (payload: any) => {
+    const res = await api.post("/offboarding/initiate", payload);
+    return res.data;
+  },
+  review: async (id: string, payload: any) => {
+    const res = await api.post(`/offboarding/${id}/review`, payload);
+    return res.data;
+  },
+  updateClearance: async (id: string, clearanceId: string, payload: any) => {
+    const res = await api.put(`/offboarding/${id}/clearances/${clearanceId}`, payload);
+    return res.data;
+  },
+  saveInterview: async (id: string, payload: any) => {
+    const res = await api.post(`/offboarding/${id}/interview`, payload);
+    return res.data;
+  },
+  calculateSettlement: async (id: string, payload?: any) => {
+    const res = await api.post(`/offboarding/${id}/calculate-settlement`, payload || {});
+    return res.data;
+  },
+  disburseAndTerminate: async (id: string, payload: any) => {
+    const res = await api.post(`/offboarding/${id}/disburse-and-terminate`, payload);
+    return res.data;
+  },
+  getDocument: async (id: string, docType: string) => {
+    const res = await api.get(`/offboarding/${id}/documents/${docType}`);
+    return res.data;
+  },
+};
+
