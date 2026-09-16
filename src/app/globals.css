@@ -119,3 +119,20 @@
 .animate-ripple {
   animation: ripple 3s infinite ease-in-out;
 }
+
+/* Print / PDF Document Styling */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+  }
+  
+  header,
+  nav,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+}
+
