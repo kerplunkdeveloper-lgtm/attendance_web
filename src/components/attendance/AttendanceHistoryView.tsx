@@ -111,7 +111,7 @@ export default function AttendanceHistoryView() {
   const totalPresent = attendances.filter((a) => a.status === "PRESENT" || a.status === "WORK_FROM_HOME").length;
   const totalLate = attendances.filter((a) => a.status === "LATE" || (a.lateMinutes && a.lateMinutes > 0)).length;
   const totalWfh = attendances.filter((a) => a.isWorkFromHome || a.status === "WORK_FROM_HOME").length;
-  const totalWorkHours = attendances.reduce((acc, a) => acc + (a.workHours || 0), 0);
+  const totalWorkHours = attendances.reduce((acc, a) => acc + (Number(a.workHours) || 0), 0);
 
   const getStatusBadge = (status: AttendanceStatus) => {
     switch (status) {

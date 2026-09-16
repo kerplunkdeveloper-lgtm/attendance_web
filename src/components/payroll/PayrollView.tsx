@@ -110,8 +110,8 @@ export default function PayrollView() {
     }
   };
 
-  const totalDisbursement = payslips.reduce((acc, p) => acc + (p.netSalary || 0), 0);
-  const totalLopDeductions = payslips.reduce((acc, p) => acc + (p.lopDeduction || 0), 0);
+  const totalDisbursement = payslips.reduce((acc, p) => acc + (Number(p.netSalary) || 0), 0);
+  const totalLopDeductions = payslips.reduce((acc, p) => acc + (Number(p.lopDeduction) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -178,30 +178,30 @@ export default function PayrollView() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-card rounded-2xl p-5 border border-slate-800">
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 overflow-hidden">
           <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <DollarSign className="w-3.5 h-3.5 text-indigo-400" />
+            <DollarSign className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
             Total Monthly Payout
           </p>
-          <p className="text-2xl font-black text-white">{formatCurrency(totalDisbursement)}</p>
+          <p className="text-2xl font-black text-white truncate">{formatCurrency(totalDisbursement)}</p>
           <p className="text-[10px] text-slate-400 mt-1">Across {payslips.length} employee records</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5 border border-slate-800">
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 overflow-hidden">
           <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-rose-400" />
+            <TrendingUp className="w-3.5 h-3.5 text-rose-400 shrink-0" />
             LOP Deductions
           </p>
-          <p className="text-2xl font-black text-rose-400">{formatCurrency(totalLopDeductions)}</p>
+          <p className="text-2xl font-black text-rose-400 truncate">{formatCurrency(totalLopDeductions)}</p>
           <p className="text-[10px] text-slate-400 mt-1">Attendance-linked absence deduction</p>
         </div>
 
-        <div className="glass-card rounded-2xl p-5 border border-slate-800">
+        <div className="glass-card rounded-2xl p-5 border border-slate-800 overflow-hidden">
           <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             Disbursement Mode
           </p>
-          <p className="text-xl font-bold text-emerald-300">Automated Direct Bank & WhatsApp</p>
+          <p className="text-lg font-bold text-emerald-300 truncate">Automated Direct Bank & WhatsApp</p>
           <p className="text-[10px] text-slate-400 mt-1">Complies with 26 days/month standard</p>
         </div>
       </div>

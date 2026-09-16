@@ -129,7 +129,7 @@ export default function OvertimeAndCompOffView() {
             Overtime Accrued
           </p>
           <p className="text-3xl font-black text-indigo-300">
-            {myOvertimes.reduce((acc, o) => acc + (o.hours || 0), 0)} Hours
+            {myOvertimes.reduce((acc, o) => acc + (Number(o.hours) || 0), 0)} Hours
           </p>
           <p className="text-[10px] text-slate-400 mt-1">Beyond standard 9 hr shifts</p>
         </div>
