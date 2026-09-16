@@ -31,6 +31,11 @@ interface GeoCoordinates {
 
 type SyncStatus = "idle" | "syncing" | "synced" | "error";
 
+export interface PunchOptions {
+  workMode?: "OFFICE" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
+  note?: string;
+}
+
 interface AttendanceContextType {
   todayStatus: AttendanceTodayStatus | null;
   isLoading: boolean;
@@ -45,8 +50,8 @@ interface AttendanceContextType {
   syncStatus: SyncStatus;
   lastSyncedAt: Date | null;
   // Actions
-  checkIn: () => Promise<boolean>;
-  checkOut: () => Promise<boolean>;
+  checkIn: (options?: PunchOptions) => Promise<boolean>;
+  checkOut: (options?: PunchOptions) => Promise<boolean>;
   startBreak: () => Promise<boolean>;
   endBreak: () => Promise<boolean>;
   wfhCheckIn: (note?: string) => Promise<boolean>;
@@ -321,25 +326,37 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
 
   // ── Individual punch actions ─────────────────────────────────────────────────
 
-  const checkIn = useCallback(async (): Promise<boolean> => {
-    const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
-    return handlePunch(
-      "CHECK_IN",
-      () => attendanceApi.checkIn(coords),
-      "Clock-in recorded!",
-      coords
-    );
-  }, [currentLocation, handlePunch]);
+  const checkIn = useCallback(
+    async (options?: PunchOptions): Promise<boolean> => {
+      const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
+      return handlePunch(
+        "CHECK_IN",
+        () => attendanceApi.checkIn({ ...coords, ...options }),
+        options?.workMode === "WORK_FROM_HOME"
+          ? "WFH Clock-in recorded!"
+          : options?.workMode === "CLIENT_VISIT"
+          ? "Client Visit Clock-in recorded!"
+          : options?.workMode === "TRAVEL"
+          ? "Travel Clock-in recorded!"
+          : "Clock-in recorded!",
+        coords
+      );
+    },
+    [currentLocation, handlePunch]
+  );
 
-  const checkOut = useCallback(async (): Promise<boolean> => {
-    const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
-    return handlePunch(
-      "CHECK_OUT",
-      () => attendanceApi.checkOut(coords),
-      "Clock-out recorded!",
-      coords
-    );
-  }, [currentLocation, handlePunch]);
+  const checkOut = useCallback(
+    async (options?: PunchOptions): Promise<boolean> => {
+      const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
+      return handlePunch(
+        "CHECK_OUT",
+        () => attendanceApi.checkOut({ ...coords, ...options }),
+        "Clock-out recorded!",
+        coords
+      );
+    },
+    [currentLocation, handlePunch]
+  );
 
   const startBreak = useCallback(async (): Promise<boolean> => {
     const coords = currentLocation

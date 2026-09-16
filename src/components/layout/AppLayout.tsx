@@ -256,7 +256,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {!isCheckedIn ? (
               <button
-                onClick={checkIn}
+                onClick={() => checkIn()}
                 disabled={isActionLoading}
                 className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition flex items-center gap-1"
               >
@@ -283,7 +283,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <Coffee className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={checkOut}
+                  onClick={() => checkOut()}
                   disabled={isActionLoading}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white shadow-sm transition"
                 >

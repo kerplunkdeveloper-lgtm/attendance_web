@@ -149,14 +149,26 @@ export const authApi = {
 };
 
 export const attendanceApi = {
-  checkIn: async (data: { latitude: number; longitude: number; accuracy?: number }) => {
+  checkIn: async (data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    workMode?: string;
+    note?: string;
+  }) => {
     const res = await api.post("/attendance/check-in", {
       ...data,
       timestamp: new Date().toISOString(),
     });
     return res.data;
   },
-  checkOut: async (data: { latitude: number; longitude: number; accuracy?: number }) => {
+  checkOut: async (data: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    workMode?: string;
+    note?: string;
+  }) => {
     const res = await api.post("/attendance/check-out", {
       ...data,
       timestamp: new Date().toISOString(),
