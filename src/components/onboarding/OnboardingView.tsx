@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { OnboardingCandidate } from "@/types";
 import { onboardingApi, branchesApi, departmentsApi } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, unwrapList } from "@/lib/utils";
 import {
   UserPlus,
   Send,
@@ -23,12 +23,36 @@ import confetti from "canvas-confetti";
 import Link from "next/link";
 
 const STAGES = [
-  { id: "APPLIED", label: "Applied / Sourced", color: "border-slate-700 bg-slate-900/40" },
-  { id: "INTERVIEWING", label: "Interviewing", color: "border-indigo-500/30 bg-indigo-950/20" },
-  { id: "OFFERED", label: "Offer Dispatched", color: "border-sky-500/30 bg-sky-950/20" },
-  { id: "ACCEPTED", label: "Offer Accepted", color: "border-emerald-500/30 bg-emerald-950/20" },
-  { id: "ONBOARDED", label: "Active Employee", color: "border-teal-500/30 bg-teal-950/20" },
+  { id: "INVITED", label: "Invited", statuses: ["INVITED"], color: "border-slate-200 bg-slate-50/70" },
+  {
+    id: "REVIEW",
+    label: "Profile / Review",
+    statuses: ["PROFILE_SUBMITTED", "UNDER_HR_REVIEW"],
+    color: "border-indigo-200 bg-indigo-50/40",
+  },
+  {
+    id: "READY",
+    label: "Verified / Offer ready",
+    statuses: ["HR_VERIFIED", "ADMIN_APPROVED", "OFFER_GENERATED"],
+    color: "border-sky-200 bg-sky-50/40",
+  },
+  { id: "OFFER_SENT", label: "Offer Sent", statuses: ["OFFER_SENT"], color: "border-amber-200 bg-amber-50/40" },
+  { id: "ACCEPTED", label: "Accepted", statuses: ["OFFER_ACCEPTED", "ACCEPTED"], color: "border-emerald-200 bg-emerald-50/40" },
+  { id: "ACTIVATED", label: "Activated", statuses: ["ACTIVATED", "ONBOARDED"], color: "border-teal-200 bg-teal-50/40" },
 ];
+
+const SEND_OFFER_STATUSES = [
+  "INVITED",
+  "PROFILE_SUBMITTED",
+  "UNDER_HR_REVIEW",
+  "HR_VERIFIED",
+  "ADMIN_APPROVED",
+  "OFFER_GENERATED",
+  "APPLIED",
+  "INTERVIEWING",
+];
+const VERIFY_STATUSES = ["PROFILE_SUBMITTED", "UNDER_HR_REVIEW"];
+const ACTIVATE_STATUSES = ["OFFER_ACCEPTED", "ACCEPTED"];
 
 export default function OnboardingView() {
   const [candidates, setCandidates] = useState<OnboardingCandidate[]>([]);
@@ -58,15 +82,9 @@ export default function OnboardingView() {
         departmentsApi.list(),
       ]);
 
-      if (candRes.status === "fulfilled" && candRes.value?.success) {
-        setCandidates(candRes.value.data || candRes.value.candidates || []);
-      }
-      if (brRes.status === "fulfilled" && brRes.value?.success) {
-        setBranches(brRes.value.data || brRes.value.branches || []);
-      }
-      if (deptRes.status === "fulfilled" && deptRes.value?.success) {
-        setDepartments(deptRes.value.data || deptRes.value.departments || []);
-      }
+      if (candRes.status === "fulfilled") setCandidates(unwrapList<OnboardingCandidate>(candRes.value));
+      if (brRes.status === "fulfilled") setBranches(unwrapList(brRes.value));
+      if (deptRes.status === "fulfilled") setDepartments(unwrapList(deptRes.value));
     } catch (err) {
       console.error("Failed to load onboarding pipeline:", err);
     } finally {
@@ -89,9 +107,11 @@ export default function OnboardingView() {
         phone,
         designation,
         offeredSalary: Number(offeredSalary),
+        proposedSalary: Number(offeredSalary),
         departmentId: departmentId || undefined,
         branchId: branchId || undefined,
         joiningDate: joiningDate || undefined,
+        expectedJoinDate: joiningDate || undefined,
       });
 
       if (res?.success) {
@@ -134,6 +154,18 @@ export default function OnboardingView() {
     }
   };
 
+  const handleHrVerify = async (candidateId: string) => {
+    try {
+      const res = await onboardingApi.hrVerify(candidateId, { action: "APPROVE" });
+      if (res?.success) {
+        toast.success("Candidate verified");
+        loadPipeline();
+      } else toast.error(res?.message || "Verify failed");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Verify failed");
+    }
+  };
+
   const handleActivateAccount = async (candidateId: string) => {
     toast.loading("Activating employee account and provisioning credentials...", { id: "activate-emp" });
     try {
@@ -157,11 +189,11 @@ export default function OnboardingView() {
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <UserPlus className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <UserPlus className="w-7 h-7 text-indigo-600" />
             Digital Candidate Onboarding Pipeline
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Track hiring stages, dispatch digital offer letters with one-click portal links, and activate employee accounts
           </p>
         </div>
@@ -178,18 +210,18 @@ export default function OnboardingView() {
       {/* Kanban Board */}
       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {STAGES.map((stage) => {
-          const stageCandidates = candidates.filter((c) => c.status === stage.id);
+          const stageCandidates = candidates.filter((c) => stage.statuses.includes(c.status));
           return (
             <div
               key={stage.id}
               className={`rounded-3xl border p-4 flex flex-col min-h-[500px] ${stage.color}`}
             >
               {/* Stage Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
-                <span className="font-bold text-xs text-slate-200 tracking-wide uppercase">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                <span className="font-bold text-xs text-slate-800 tracking-wide uppercase">
                   {stage.label}
                 </span>
-                <span className="w-5 h-5 rounded-full bg-slate-800 text-[11px] font-bold text-slate-300 flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-white border border-slate-200 text-[11px] font-bold text-slate-700 flex items-center justify-center shadow-xs">
                   {stageCandidates.length}
                 </span>
               </div>
@@ -197,70 +229,76 @@ export default function OnboardingView() {
               {/* Cards in this Stage */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                 {stageCandidates.length === 0 ? (
-                  <div className="h-40 flex items-center justify-center text-[11px] text-slate-500 italic">
+                  <div className="h-40 flex items-center justify-center text-[11px] text-slate-400 italic">
                     No candidates
                   </div>
                 ) : (
                   stageCandidates.map((cand) => (
                     <div
                       key={cand.id}
-                      className="glass-card rounded-2xl p-4 border border-slate-800 space-y-3 hover:border-slate-700 transition"
+                      className="rounded-2xl p-4 border border-slate-200 bg-white space-y-3 hover:border-slate-300 shadow-xs transition"
                     >
                       <div>
-                        <h4 className="font-bold text-sm text-white">
+                        <h4 className="font-bold text-sm text-slate-900">
                           {cand.firstName} {cand.lastName}
                         </h4>
-                        <p className="text-xs text-indigo-400 font-medium">{cand.designation}</p>
+                        <p className="text-xs text-indigo-600 font-medium">{cand.designation}</p>
                       </div>
 
-                      <div className="space-y-1 text-[11px] text-slate-400">
+                      <div className="space-y-1 text-[11px] text-slate-600">
                         <div className="flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-slate-500" />
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
                           <span className="truncate">{cand.email}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 font-semibold text-slate-300">
-                          <DollarSign className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Offered: {formatCurrency(cand.offeredSalary)}</span>
+                        <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+                          <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Offered: {formatCurrency(cand.proposedSalary ?? cand.offeredSalary)}</span>
                         </div>
-                        {cand.joiningDate && (
+                        {(cand.expectedJoinDate || cand.joiningDate) && (
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Joining: {formatDate(cand.joiningDate)}</span>
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Joining: {formatDate(cand.expectedJoinDate || cand.joiningDate)}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Portal Link */}
-                      {cand.portalToken && (
-                        <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                      {(cand.token || cand.portalToken) && (
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                           <Link
-                            href={`/onboarding/portal/${cand.portalToken}`}
+                            href={`/onboarding/portal/${cand.token || cand.portalToken}`}
                             target="_blank"
-                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+                            className="text-[10px] text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
                           >
                             <span>Candidate Portal</span>
                             <ExternalLink className="w-3 h-3" />
                           </Link>
 
-                          {/* Actions based on stage */}
-                          {cand.status === "APPLIED" || cand.status === "INTERVIEWING" ? (
+                          {VERIFY_STATUSES.includes(cand.status) ? (
+                            <button
+                              onClick={() => handleHrVerify(cand.id)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[10px]"
+                            >
+                              Verify
+                            </button>
+                          ) : SEND_OFFER_STATUSES.includes(cand.status) ? (
                             <button
                               onClick={() => handleSendOffer(cand.id)}
-                              className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[10px] flex items-center gap-1 shadow"
+                              className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-[10px] flex items-center gap-1 shadow-xs"
                             >
                               <Send className="w-3 h-3" />
                               Send Offer
                             </button>
-                          ) : cand.status === "ACCEPTED" ? (
+                          ) : ACTIVATE_STATUSES.includes(cand.status) ? (
                             <button
                               onClick={() => handleActivateAccount(cand.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[10px] flex items-center gap-1 shadow"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[10px] flex items-center gap-1 shadow-xs"
                             >
                               <CheckCircle2 className="w-3 h-3" />
                               Activate
                             </button>
-                          ) : cand.status === "ONBOARDED" ? (
-                            <span className="text-[10px] text-teal-400 font-bold flex items-center gap-1">
+                          ) : cand.status === "ACTIVATED" || cand.status === "ONBOARDED" ? (
+                            <span className="text-[10px] text-teal-700 font-bold flex items-center gap-1">
                               <ShieldCheck className="w-3 h-3" />
                               Active
                             </span>
@@ -278,79 +316,79 @@ export default function OnboardingView() {
 
       {/* Invite Joiner Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-1">Invite New Joiner to Pipeline</h3>
-            <p className="text-xs text-slate-400 mb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Invite New Joiner to Pipeline</h3>
+            <p className="text-xs text-slate-500 mb-4">
               Send onboarding invite with candidate portal link for document collection
             </p>
 
             <form onSubmit={handleCreateJoiner} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">First Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Last Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Last Name</label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Designation *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Designation *</label>
                   <input
                     type="text"
                     value={designation}
                     onChange={(e) => setDesignation(e.target.value)}
                     placeholder="e.g. Senior Frontend Engineer"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Annual CTC (INR) *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Annual CTC (INR) *</label>
                   <input
                     type="number"
                     value={offeredSalary}
                     onChange={(e) => setOfferedSalary(e.target.value)}
                     placeholder="e.g. 1200000"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
@@ -358,11 +396,11 @@ export default function OnboardingView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Branch</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Branch</label>
                   <select
                     value={branchId}
                     onChange={(e) => setBranchId(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">Select Branch...</option>
                     {branches.map((b) => (
@@ -373,11 +411,11 @@ export default function OnboardingView() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
                   <select
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">Select Department...</option>
                     {departments.map((d) => (
@@ -390,20 +428,21 @@ export default function OnboardingView() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Proposed Joining Date</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Proposed Joining Date *</label>
                 <input
                   type="date"
                   value={joiningDate}
                   onChange={(e) => setJoiningDate(e.target.value)}
-                  className="w-full glass-input rounded-xl p-2.5 text-xs"
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  required
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900"
                 >
                   Cancel
                 </button>

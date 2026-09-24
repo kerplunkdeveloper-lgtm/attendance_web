@@ -6,6 +6,70 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Pull a list out of any backend envelope ({ data }, { records }, nested, or a bare array). */
+export function unwrapList<T = any>(res: any): T[] {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  const candidates = [
+    res.data,
+    res.records,
+    res.notifications,
+    res.transactions,
+    res.history,
+    res.leaveRequests,
+    res.corrections,
+    res.overtimeRequests,
+    res.requests,
+    res.claims,
+    res.employees,
+    res.holidays,
+    res.payslips,
+    res.balances,
+    res.items,
+    res.departments,
+    res.devices,
+    res.logs,
+    res.overrides,
+    res.shifts,
+    res.branches,
+    res.candidates,
+    res.teammates,
+    res.threads,
+    res.messages,
+    res.users,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c;
+  }
+  if (res.data && typeof res.data === "object") {
+    for (const c of [
+      res.data.records,
+      res.data.notifications,
+      res.data.transactions,
+      res.data.payslips,
+      res.data.items,
+      res.data.teammates,
+      res.data.threads,
+      res.data.messages,
+      res.data.users,
+    ]) {
+      if (Array.isArray(c)) return c;
+    }
+  }
+  return [];
+}
+
+/** Pull a single object out of { data } / { policy } / extra keys. */
+export function unwrapItem<T = any>(res: any, extraKeys: string[] = []): T | null {
+  if (!res) return null;
+  for (const k of ["data", "policy", ...extraKeys]) {
+    if (res[k] !== undefined && res[k] !== null && typeof res[k] === "object" && !Array.isArray(res[k])) {
+      return res[k] as T;
+    }
+  }
+  return null;
+}
+
 export function formatCurrency(amount: number | string | undefined | null, currency = "INR"): string {
   if (amount === undefined || amount === null) return "₹0";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -27,16 +91,44 @@ export function formatDate(dateString?: string | null, formatPattern = "dd MMM y
   }
 }
 
-export function formatTime(timeString?: string | null): string {
-  if (!timeString) return "-";
+export function formatTime(timeValue?: string | Date | number | null): string {
+  if (!timeValue) return "-";
   try {
-    if (timeString.includes("T")) {
-      const d = parseISO(timeString);
-      return format(d, "hh:mm a");
+    if (timeValue instanceof Date) {
+      return isNaN(timeValue.getTime()) ? "-" : format(timeValue, "hh:mm a");
     }
-    return timeString;
+    const str = String(timeValue).trim();
+    if (!str || str === "null" || str === "undefined" || str === "-") return "-";
+
+    // If it's already a formatted time like "09:30 AM" or "9:30 PM"
+    if (/^\d{1,2}:\d{2}(\s*(AM|PM))?$/i.test(str)) {
+      return str.toUpperCase();
+    }
+
+    // ISO timestamp or standard date-time string
+    if (str.includes("T") || str.includes("-") || str.includes("/")) {
+      const d = parseISO(str);
+      if (!isNaN(d.getTime())) {
+        return format(d, "hh:mm a");
+      }
+      const directDate = new Date(str);
+      if (!isNaN(directDate.getTime())) {
+        return format(directDate, "hh:mm a");
+      }
+    }
+
+    // If numeric timestamp
+    const num = Number(str);
+    if (!isNaN(num) && num > 1000000000) {
+      const d = new Date(num);
+      if (!isNaN(d.getTime())) {
+        return format(d, "hh:mm a");
+      }
+    }
+
+    return str;
   } catch {
-    return timeString;
+    return String(timeValue || "-");
   }
 }
 

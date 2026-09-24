@@ -1,44 +1,49 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Branch } from "@/types";
-import { branchesApi } from "@/lib/api";
+import { branchesApi, employeesApi } from "@/lib/api";
+import { unwrapList } from "@/lib/utils";
 import {
   Building2,
   MapPin,
   Plus,
   Navigation,
-  CheckCircle2,
   ShieldCheck,
   Loader2,
   Trash2,
-  Compass,
+  Crosshair,
+  Users,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function BranchesAndGeofencesView() {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
-  const [latitude, setLatitude] = useState("11.9344");
-  const [longitude, setLongitude] = useState("79.8358");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [radiusMeters, setRadiusMeters] = useState(250);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [assignBranch, setAssignBranch] = useState<Branch | null>(null);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
 
   const loadBranches = async () => {
     setLoading(true);
     try {
-      const res = await branchesApi.list();
-      if (res?.success && Array.isArray(res.data)) {
-        setBranches(res.data);
-      } else if (Array.isArray(res)) {
-        setBranches(res);
-      }
-    } catch (err: any) {
+      const [brRes, empRes] = await Promise.allSettled([branchesApi.list(), employeesApi.list({ page: 1, limit: 200 })]);
+      if (brRes.status === "fulfilled") setBranches(unwrapList<Branch>(brRes.value));
+      if (empRes.status === "fulfilled") setEmployees(unwrapList(empRes.value));
+    } catch (err) {
       console.error("Failed to load branches:", err);
     } finally {
       setLoading(false);
@@ -49,232 +54,326 @@ export default function BranchesAndGeofencesView() {
     loadBranches();
   }, []);
 
-  const handleCreateBranch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const res = await branchesApi.create({
-        name,
-        address,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-        radiusMeters: Number(radiusMeters),
-      });
+  const resetModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+    setName("");
+    setAddress("");
+    setLatitude("");
+    setLongitude("");
+    setRadiusMeters(250);
+    setLocationAccuracy(null);
+  };
 
+  const openCreate = () => {
+    setEditingId(null);
+    setName("");
+    setAddress("");
+    setLatitude("");
+    setLongitude("");
+    setRadiusMeters(250);
+    setLocationAccuracy(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (b: Branch) => {
+    setEditingId(b.id);
+    setName(b.name || "");
+    setAddress(b.address || "");
+    setLatitude(String(b.latitude ?? ""));
+    setLongitude(String(b.longitude ?? ""));
+    setRadiusMeters(Number(b.radiusMeters || 250));
+    setLocationAccuracy(null);
+    setModalOpen(true);
+  };
+
+  const fillFromCoords = async (lat: number, lng: number, accuracy?: number) => {
+    setLatitude(lat.toFixed(6));
+    setLongitude(lng.toFixed(6));
+    if (typeof accuracy === "number") setLocationAccuracy(Math.round(accuracy));
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+        { headers: { Accept: "application/json" } }
+      );
+      if (!res.ok) return;
+      const geo = await res.json();
+      const label = geo?.display_name as string | undefined;
+      const city = geo?.address?.city || geo?.address?.town || geo?.address?.village || geo?.address?.state;
+      if (label) setAddress(label);
+      if (!name.trim() && city) setName(`${city} office`);
+    } catch {
+      // address lookup is optional
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("GPS is not available in this browser.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        await fillFromCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        toast.success("Current location captured. Save to set this as a branch.");
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        toast.error(err.message || "Could not read GPS. Allow location access and try again.");
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  };
+
+  const handleSaveBranch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!latitude || !longitude) {
+      toast.error("Set a location first — use GPS or enter coordinates.");
+      return;
+    }
+    setIsSubmitting(true);
+    const payload = {
+      name,
+      address,
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      radiusMeters: Number(radiusMeters),
+    };
+    try {
+      const res = editingId ? await branchesApi.update(editingId, payload) : await branchesApi.create(payload);
       if (res?.success) {
-        toast.success("Branch location & geofence perimeter configured successfully!");
-        setModalOpen(false);
-        setName("");
-        setAddress("");
+        toast.success(editingId ? "Branch location updated" : "Branch location saved. Assign people to this branch next.");
+        resetModal();
         loadBranches();
       } else {
-        toast.error(res?.message || "Failed to create branch");
+        toast.error(res?.message || "Failed to save branch");
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to create branch");
+      toast.error(err.response?.data?.message || err.message || "Failed to save branch");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Preset quick fill for Indian tech hubs
-  const applyPreset = (presetName: string, lat: string, lng: string) => {
-    setName(presetName);
-    setLatitude(lat);
-    setLongitude(lng);
+  const handleDeleteBranch = async (id: string) => {
+    if (!confirm("Delete this branch? Employees will be unassigned from it.")) return;
+    try {
+      const res = await branchesApi.remove(id);
+      if (res?.success !== false) {
+        toast.success("Branch deleted");
+        loadBranches();
+      } else toast.error(res?.message || "Delete failed");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Delete failed");
+    }
   };
+
+  const handleSetEmployeeBranch = async (employeeId: string, branchId: string) => {
+    setAssigningId(employeeId);
+    try {
+      const res = await employeesApi.update(employeeId, { branchId: branchId || null });
+      if (res?.success !== false) {
+        toast.success("Branch assigned");
+        setEmployees((prev) =>
+          prev.map((emp) =>
+            emp.id === employeeId
+              ? { ...emp, branchId: branchId || null, branch: branches.find((b) => b.id === branchId) || null }
+              : emp
+          )
+        );
+      } else {
+        toast.error(res?.message || "Could not set branch");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Could not set branch");
+    } finally {
+      setAssigningId(null);
+    }
+  };
+
+  const mapUrl = latitude && longitude ? `https://www.google.com/maps?q=${latitude},${longitude}` : null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <Building2 className="w-7 h-7 text-indigo-400" />
-            Branch Locations & GPS Geofences
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <Building2 className="w-7 h-7 text-indigo-600" />
+            Locations & branches
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Configure physical office perimeters with Haversine GPS radius validation for tamper-proof punching
+          <p className="text-xs text-slate-500 mt-1">
+            Add a GPS location, save it as a branch, then assign people to that office.
           </p>
         </div>
-
         <button
-          onClick={() => setModalOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+          onClick={openCreate}
+          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20"
         >
           <Plus className="w-4 h-4" />
-          Add Branch Geofence
+          Add location
         </button>
       </div>
 
-      {/* Geofence Info Alert */}
-      <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20 text-xs text-slate-300 flex items-start gap-3">
-        <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+      <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-xs text-slate-700 flex items-start gap-3">
+        <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold text-white">Smart Anti-Buddy-Punching Protection</span>
-          <p className="text-slate-400 mt-0.5 leading-relaxed">
-            When an employee punches from their mobile device or web browser, WorkPulse computes their real-time Haversine distance from the branch's GPS coordinates. If outside the configured radius (e.g. 250m), the punch requires WFH justification.
+          <span className="font-semibold text-slate-900">How this works</span>
+          <p className="text-slate-600 mt-0.5 leading-relaxed">
+            Stand at the office, tap <strong>Use my current location</strong>, save the branch, then set each employee to that branch. Clock-in then checks GPS against this radius.
           </p>
         </div>
       </div>
 
-      {/* Branches Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {loading ? (
           <div className="col-span-full py-16 text-center text-slate-500">
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500 mb-2" />
-            Loading registered branch geofences...
+            Loading locations...
           </div>
         ) : branches.length === 0 ? (
           <div className="col-span-full py-16 text-center text-slate-500">
-            No branch locations found. Click "Add Branch Geofence" to create one.
+            No locations yet. Click <span className="font-semibold text-slate-700">Add location</span> and capture GPS.
           </div>
         ) : (
-          branches.map((b) => (
-            <div
-              key={b.id}
-              className="glass-card rounded-3xl p-6 border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition relative overflow-hidden"
-            >
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    <MapPin className="w-6 h-6" />
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Geofence Active
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-white">{b.name}</h3>
-                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                    {b.address || "Main Corporate Tech Facility"}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">GPS Coordinates:</span>
-                    <span className="font-mono text-slate-300">
-                      {Number(b.latitude).toFixed(4)}, {Number(b.longitude).toFixed(4)}
+          branches.map((b) => {
+            const assigned = employees.filter((emp) => emp.branchId === b.id).length;
+            return (
+              <div key={b.id} className="rounded-3xl p-6 border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-200">
+                      <MapPin className="w-6 h-6" />
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {assigned} people
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Allowed Perimeter:</span>
-                    <span className="font-bold text-emerald-400">
-                      {b.radiusMeters || 250} meters
-                    </span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">{b.name}</h3>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{b.address || "No street address"}</p>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-slate-500">GPS</span>
+                      <span className="font-mono text-slate-700">
+                        {b.latitude != null ? Number(b.latitude).toFixed(4) : "—"}, {b.longitude != null ? Number(b.longitude).toFixed(4) : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Punch radius</span>
+                      <span className="font-bold text-emerald-700">{b.radiusMeters || 250} m</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-4 mt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <a
+                    href={b.latitude != null ? `https://www.google.com/maps?q=${b.latitude},${b.longitude}` : undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-indigo-600 font-semibold"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Map
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setAssignBranch(b)} className="text-slate-700 font-semibold">
+                      Set people
+                    </button>
+                    <button onClick={() => openEdit(b)} className="text-indigo-600 font-semibold">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDeleteBranch(b.id)} className="text-rose-600">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Navigation className="w-3.5 h-3.5 text-indigo-400" />
-                  Haversine Mode
-                </span>
-                <span className="font-mono text-[10px] text-slate-500">
-                  ID: {b.id.slice(0, 8)}
-                </span>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      {/* Add Branch Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-1">Add Branch & Geofence Perimeter</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Configure coordinates and geofence boundary radius for clock-in checks
-            </p>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">{editingId ? "Edit location" : "Add location & set as branch"}</h3>
+            <p className="text-xs text-slate-500 mb-4">Capture GPS at the office, then save. You can assign people after saving.</p>
 
-            {/* Quick Presets */}
-            <div className="mb-4">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
-                Quick Coordinate Autofill:
-              </span>
-              <div className="flex flex-wrap gap-1.5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => applyPreset("Pondicherry Technology HQ", "11.9344", "79.8358")}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                >
-                  Pondicherry HQ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset("Chennai Innovation Hub", "12.9010", "80.2279")}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                >
-                  Chennai OMR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset("Bangalore Electronic City", "12.8399", "77.6770")}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                >
-                  Bangalore EC
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              disabled={locating}
+              className="w-full mb-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
+              {locating ? "Reading GPS…" : "Use my current location"}
+            </button>
+            {locationAccuracy != null && (
+              <p className="text-[11px] text-emerald-700 mb-3">GPS accuracy about {locationAccuracy} meters.</p>
+            )}
 
-            <form onSubmit={handleCreateBranch} className="space-y-4">
+            <form onSubmit={handleSaveBranch} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Branch Name *</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Branch name *</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Pondicherry Technology HQ"
-                  className="w-full glass-input rounded-xl p-2.5 text-xs"
+                  placeholder="e.g. Pondicherry HQ"
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Physical Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. 100 Beach Road, White Town, Pondicherry"
-                  className="w-full glass-input rounded-xl p-2.5 text-xs"
+                  placeholder="Filled from GPS when possible"
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Latitude *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Latitude *</label>
                   <input
                     type="number"
                     step="any"
                     value={latitude}
                     onChange={(e) => setLatitude(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs font-mono"
+                    placeholder="From GPS"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Longitude *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Longitude *</label>
                   <input
                     type="number"
                     step="any"
                     value={longitude}
                     onChange={(e) => setLongitude(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs font-mono"
+                    placeholder="From GPS"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
               </div>
-
+              {mapUrl && (
+                <a href={mapUrl} target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-indigo-600 inline-flex items-center gap-1">
+                  Preview on map <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-slate-300">
-                    Geofence Radius: <span className="text-indigo-400 font-bold">{radiusMeters} meters</span>
+                  <label className="text-xs font-semibold text-slate-700">
+                    Punch radius: <span className="text-indigo-600 font-bold">{radiusMeters} m</span>
                   </label>
-                  <span className="text-[10px] text-slate-500">Recommended: 200m - 350m</span>
+                  <span className="text-[10px] text-slate-500">50m – 1000m</span>
                 </div>
                 <input
                   type="range"
@@ -283,28 +382,72 @@ export default function BranchesAndGeofencesView() {
                   step={25}
                   value={radiusMeters}
                   onChange={(e) => setRadiusMeters(Number(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
+                  className="w-full accent-indigo-600 cursor-pointer"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
-                >
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button type="button" onClick={resetModal} className="px-4 py-2 text-xs font-medium text-slate-600">
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2"
                 >
                   {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Save Geofence
+                  {editingId ? "Update branch" : "Save as branch"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {assignBranch && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-600" />
+                  Set branch
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Assign people to <span className="font-semibold text-slate-700">{assignBranch.name}</span>
+                </p>
+              </div>
+              <button onClick={() => setAssignBranch(null)} className="text-xs font-semibold text-slate-500">
+                Close
+              </button>
+            </div>
+            {employees.length === 0 ? (
+              <p className="text-sm text-slate-500 py-8 text-center">No employees yet. Add people first, then set their branch.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {employees.map((emp) => {
+                  const onThis = emp.branchId === assignBranch.id;
+                  return (
+                    <div key={emp.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border border-slate-100 bg-slate-50">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">
+                          {emp.firstName} {emp.lastName || ""}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">{emp.branch?.name || "No branch"}</p>
+                      </div>
+                      <button
+                        disabled={assigningId === emp.id}
+                        onClick={() => handleSetEmployeeBranch(emp.id, onThis ? "" : assignBranch.id)}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${
+                          onThis ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-indigo-600 text-white"
+                        }`}
+                      >
+                        {assigningId === emp.id ? "Saving…" : onThis ? "Assigned" : "Set here"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

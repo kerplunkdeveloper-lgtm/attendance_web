@@ -75,25 +75,21 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Glow effects */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
-
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
         <div className="inline-flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 p-0.5 shadow-xl shadow-indigo-500/30">
-            <div className="w-full h-full bg-[#0c1222] rounded-[14px] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-indigo-400" />
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 p-0.5 shadow-md shadow-indigo-500/20">
+            <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-indigo-600" />
             </div>
           </div>
-          <span className="text-2xl font-black tracking-tight text-white">WorkPulse</span>
+          <span className="text-2xl font-black tracking-tight text-slate-900">WorkPulse</span>
         </div>
 
-        <h2 className="text-2xl font-black tracking-tight text-white">
+        <h2 className="text-2xl font-black tracking-tight text-slate-900">
           Set Up Your Permanent Password
         </h2>
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-slate-500">
           {user?.mustChangePassword
             ? "Your account was created via invite. Please create a secure password to proceed."
             : "Update your password to keep your account safe."}
@@ -104,15 +100,15 @@ export default function ChangePasswordPage() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-indigo-950/40"
+          className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-xs"
         >
           {success ? (
             <div className="text-center py-6 space-y-3">
-              <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-bold text-white">Password Updated!</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-lg font-bold text-slate-900">Password Updated!</h3>
+              <p className="text-xs text-slate-500">
                 Your credentials are saved. Redirecting to your workspace...
               </p>
             </div>
@@ -120,11 +116,11 @@ export default function ChangePasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Current / Temp Password */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Temporary / Current Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
@@ -133,12 +129,12 @@ export default function ChangePasswordPage() {
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter the password from your email"
-                    className="w-full bg-slate-800/80 border border-slate-700 text-white pl-9 pr-10 py-2.5 rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-white border border-slate-200 text-slate-900 pl-9 pr-10 py-2.5 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrent(!showCurrent)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                   >
                     {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -147,11 +143,11 @@ export default function ChangePasswordPage() {
 
               {/* New Password */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -160,32 +156,32 @@ export default function ChangePasswordPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Create a strong password"
-                    className="w-full bg-slate-800/80 border border-slate-700 text-white pl-9 pr-10 py-2.5 rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-white border border-slate-200 text-slate-900 pl-9 pr-10 py-2.5 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNew(!showNew)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                   >
                     {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
 
                 {/* Password strength checklist */}
-                <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
-                  <div className={`flex items-center gap-1.5 ${hasMinLength ? "text-emerald-400" : ""}`}>
+                <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-slate-500">
+                  <div className={`flex items-center gap-1.5 ${hasMinLength ? "text-emerald-600 font-semibold" : ""}`}>
                     <CheckCircle2 className="w-3 h-3" />
                     <span>8+ Characters</span>
                   </div>
-                  <div className={`flex items-center gap-1.5 ${hasUppercase ? "text-emerald-400" : ""}`}>
+                  <div className={`flex items-center gap-1.5 ${hasUppercase ? "text-emerald-600 font-semibold" : ""}`}>
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Uppercase letter</span>
                   </div>
-                  <div className={`flex items-center gap-1.5 ${hasNumber ? "text-emerald-400" : ""}`}>
+                  <div className={`flex items-center gap-1.5 ${hasNumber ? "text-emerald-600 font-semibold" : ""}`}>
                     <CheckCircle2 className="w-3 h-3" />
                     <span>One number</span>
                   </div>
-                  <div className={`flex items-center gap-1.5 ${hasSpecial ? "text-emerald-400" : ""}`}>
+                  <div className={`flex items-center gap-1.5 ${hasSpecial ? "text-emerald-600 font-semibold" : ""}`}>
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Special character</span>
                   </div>
@@ -194,11 +190,11 @@ export default function ChangePasswordPage() {
 
               {/* Confirm New Password */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Confirm New Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -207,11 +203,11 @@ export default function ChangePasswordPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter new password"
-                    className="w-full bg-slate-800/80 border border-slate-700 text-white pl-9 pr-3 py-2.5 rounded-xl text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-white border border-slate-200 text-slate-900 pl-9 pr-3 py-2.5 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
                 {confirmPassword && !passwordsMatch && (
-                  <p className="mt-1 text-xs text-rose-400 flex items-center gap-1">
+                  <p className="mt-1 text-xs text-rose-600 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3 h-3" /> Passwords do not match
                   </p>
                 )}
@@ -220,16 +216,16 @@ export default function ChangePasswordPage() {
               <button
                 type="submit"
                 disabled={!isFormValid || submitting}
-                className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full mt-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold shadow-sm transition-all duration-200 flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                     Updating Password...
                   </>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4" />
+                    <ShieldCheck className="w-4 h-4 text-white" />
                     Set Password & Continue
                   </>
                 )}

@@ -19,6 +19,8 @@ export interface Organization {
   name: string;
   email?: string;
   phone?: string;
+  address?: string;
+  taxId?: string;
   subscriptionPlan?: SubscriptionPlan;
   subscriptionStatus?: string;
   maxEmployees?: number;
@@ -68,11 +70,18 @@ export interface Employee {
   firstName: string;
   lastName: string;
   phone?: string;
-  status: "ACTIVE" | "INACTIVE" | "TERMINATED";
+  avatarUrl?: string;
+  status: "ACTIVE" | "INACTIVE" | "TERMINATED" | "PROBATION" | "NOTICE_PERIOD";
   branchId?: string;
   departmentId?: string;
   shiftId?: string;
   ctc?: number;
+  panNumber?: string;
+  uanNumber?: string;
+  esiNumber?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
   branch?: Branch;
   department?: Department;
   shift?: Shift;
@@ -80,6 +89,7 @@ export interface Employee {
     id: string;
     email: string;
     role: UserRole;
+    avatarUrl?: string;
   };
   createdAt?: string;
 }
@@ -91,6 +101,7 @@ export interface User {
   organizationId: string;
   organization?: Organization;
   employee?: Employee;
+  avatarUrl?: string;
   planLocked?: boolean;
   mustChangePassword?: boolean;
 }
@@ -111,6 +122,7 @@ export interface Attendance {
   checkOut?: string;
   status: AttendanceStatus;
   workHours?: number;
+  workMinutes?: number;
   overtimeHours?: number;
   lateMinutes?: number;
   isWorkFromHome?: boolean;
@@ -242,7 +254,7 @@ export interface Payslip {
   lopDeduction: number;
   overtimePay: number;
   netSalary: number;
-  status: "DRAFT" | "GENERATED" | "APPROVED" | "PAID";
+  status: "DRAFT" | "GENERATED" | "APPROVED" | "PAID" | "DISBURSED";
   paidAt?: string;
   createdAt: string;
   employee?: Employee;
@@ -262,12 +274,13 @@ export interface PayrollBatch {
 export interface ExpenseClaim {
   id: string;
   employeeId: string;
-  category: "TRAVEL" | "FOOD" | "ACCOMMODATION" | "SUPPLIES" | "UTILITIES" | "MISCELLANEOUS";
+  category: "TRAVEL" | "CLIENT_ENTERTAINMENT" | "FUEL" | "INTERNET" | "LEARNING" | "OTHER" | "FOOD" | "ACCOMMODATION" | "SUPPLIES" | "UTILITIES" | "MISCELLANEOUS" | string;
   amount: number;
-  currency: string;
+  currency?: string;
+  title?: string;
   receiptUrl?: string;
-  description: string;
-  status: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "PAID";
+  description?: string;
+  status: "PENDING" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "PAID";
   reviewedBy?: string;
   reviewNote?: string;
   createdAt: string;
@@ -286,8 +299,27 @@ export interface OnboardingCandidate {
   designation: string;
   offeredSalary: number;
   joiningDate?: string;
-  status: "APPLIED" | "INTERVIEWING" | "OFFERED" | "ACCEPTED" | "REJECTED" | "ONBOARDED";
-  portalToken: string;
+  status:
+    | "INVITED"
+    | "PROFILE_SUBMITTED"
+    | "UNDER_HR_REVIEW"
+    | "HR_VERIFIED"
+    | "ADMIN_APPROVED"
+    | "OFFER_GENERATED"
+    | "OFFER_SENT"
+    | "OFFER_ACCEPTED"
+    | "OFFER_REJECTED"
+    | "ACTIVATED"
+    | "REJECTED"
+    | "APPLIED"
+    | "INTERVIEWING"
+    | "OFFERED"
+    | "ACCEPTED"
+    | "ONBOARDED";
+  token?: string;
+  portalToken?: string;
+  proposedSalary?: number;
+  expectedJoinDate?: string;
   offerLetterUrl?: string;
   offerExpiresAt?: string;
   documents?: CandidateDocument[];
@@ -312,22 +344,6 @@ export interface NotificationItem {
   type: string;
   isRead: boolean;
   createdAt: string;
-}
-
-export interface CommunicationStatus {
-  success: boolean;
-  email: {
-    isConfigured: boolean;
-    provider: string;
-    status: boolean;
-    from: string;
-  };
-  whatsapp: {
-    isConfigured: boolean;
-    provider: string;
-    senderNumber: string;
-    mode: "LIVE" | "SIMULATION";
-  };
 }
 
 export interface ApiResponse<T = any> {
@@ -540,5 +556,128 @@ export interface EmployeeExit {
   };
   clearancesByDept?: Record<string, EmployeeClearance[]>;
 }
+
+// ─── Asset Management Types ──────────────────────────────────────────────────
+export type AssetCategory =
+  | "LAPTOP"
+  | "DESKTOP"
+  | "MONITOR"
+  | "MOBILE_PHONE"
+  | "TABLET"
+  | "HEADPHONES_PERIPHERALS"
+  | "SECURITY_TOKEN_KEY"
+  | "OFFICE_FURNITURE"
+  | "VEHICLE"
+  | "OTHER";
+
+export type AssetStatus =
+  | "AVAILABLE"
+  | "ASSIGNED"
+  | "UNDER_MAINTENANCE"
+  | "DAMAGED"
+  | "RETIRED"
+  | "LOST";
+
+export type AssetCondition = "NEW" | "EXCELLENT" | "GOOD" | "FAIR" | "DAMAGED";
+
+export type AssetAssignmentType = "ASSIGNMENT" | "RETURN" | "TRANSFER";
+
+export interface AssetAssignment {
+  id: string;
+  organizationId: string;
+  assetId: string;
+  type: AssetAssignmentType;
+  employeeId?: string | null;
+  fromEmployeeId?: string | null;
+  assignedDate: string;
+  returnedDate?: string | null;
+  conditionOnAssign: AssetCondition;
+  conditionOnReturn?: AssetCondition | null;
+  assignedBy?: string | null;
+  returnedTo?: string | null;
+  recoveryCharge?: number | null;
+  remarks?: string | null;
+  createdAt: string;
+  employee?: {
+    id: string;
+    employeeCode: string;
+    firstName: string;
+    lastName?: string | null;
+    department?: { name: string } | null;
+  } | null;
+  asset?: {
+    id: string;
+    assetCode: string;
+    name: string;
+    category: AssetCategory;
+    brand?: string | null;
+    modelNumber?: string | null;
+    serialNumber?: string | null;
+  } | null;
+}
+
+export interface AssetMaintenance {
+  id: string;
+  organizationId: string;
+  assetId: string;
+  issueDescription: string;
+  vendorName?: string | null;
+  cost?: number | null;
+  startDate: string;
+  completedDate?: string | null;
+  status: "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Asset {
+  id: string;
+  organizationId: string;
+  assetCode: string;
+  name: string;
+  category: AssetCategory;
+  brand?: string | null;
+  modelNumber?: string | null;
+  serialNumber?: string | null;
+  purchaseDate?: string | null;
+  purchaseCost?: number | null;
+  warrantyExpiry?: string | null;
+  status: AssetStatus;
+  condition: AssetCondition;
+  specifications?: Record<string, any> | null;
+  assignedToId?: string | null;
+  assignedDate?: string | null;
+  assignedCondition?: AssetCondition | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo?: {
+    id: string;
+    employeeCode: string;
+    firstName: string;
+    lastName?: string | null;
+    phone?: string | null;
+    department?: { name: string } | null;
+    user?: { email: string } | null;
+  } | null;
+  assignments?: AssetAssignment[];
+  maintenances?: AssetMaintenance[];
+  _count?: {
+    assignments: number;
+    maintenances: number;
+  };
+}
+
+export interface AssetMetrics {
+  totalAssets: number;
+  assignedCount: number;
+  availableCount: number;
+  underMaintenanceCount: number;
+  damagedCount: number;
+  retiredCount: number;
+  totalAssetValue: number;
+}
+
 
 

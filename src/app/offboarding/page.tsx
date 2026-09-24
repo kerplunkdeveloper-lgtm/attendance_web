@@ -1,15 +1,18 @@
 "use client";
 
 import React from "react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/layout/AppLayout";
 import OffboardingView from "@/components/offboarding/OffboardingView";
 
 export default function OffboardingPage() {
   return (
-    <AppLayout>
-      <div className="max-w-7xl mx-auto pb-12">
-        <OffboardingView />
-      </div>
-    </AppLayout>
+    <ProtectedRoute allowedRoles={["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"]}>
+      <AppLayout>
+        <div className="max-w-7xl mx-auto pb-12">
+          <OffboardingView />
+        </div>
+      </AppLayout>
+    </ProtectedRoute>
   );
 }

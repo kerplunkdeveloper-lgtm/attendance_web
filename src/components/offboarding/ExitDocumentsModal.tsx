@@ -103,17 +103,17 @@ export default function ExitDocumentsModal({
         }
       `}</style>
 
-      <div className="w-full max-w-4xl bg-[#090d16] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[94vh] print:max-h-none print:border-none print:shadow-none print:bg-white">
+      <div className="w-full max-w-4xl bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl flex flex-col my-auto max-h-[94vh] print:max-h-none print:border-none print:shadow-none print:bg-white">
         {/* Modal Controls Header */}
-        <div className="no-print p-4 px-6 bg-[#0f172a] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="no-print p-4 px-6 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           {/* Document Switcher Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto">
             <button
               onClick={() => setDocType("FF_STATEMENT")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                 docType === "FF_STATEMENT"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                  : "bg-slate-900 text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -123,8 +123,8 @@ export default function ExitDocumentsModal({
               onClick={() => setDocType("CLEARANCE_CERTIFICATE")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                 docType === "CLEARANCE_CERTIFICATE"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                  : "bg-slate-900 text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
@@ -134,8 +134,8 @@ export default function ExitDocumentsModal({
               onClick={() => setDocType("RELIEVING_LETTER")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                 docType === "RELIEVING_LETTER"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                  : "bg-slate-900 text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
               }`}
             >
               <ScrollText className="w-3.5 h-3.5" />
@@ -145,8 +145,8 @@ export default function ExitDocumentsModal({
               onClick={() => setDocType("EXPERIENCE_LETTER")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                 docType === "EXPERIENCE_LETTER"
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
-                  : "bg-slate-900 text-slate-400 hover:text-white"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
               }`}
             >
               <Award className="w-3.5 h-3.5" />
@@ -157,7 +157,7 @@ export default function ExitDocumentsModal({
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/25 transition"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition"
               title="Print document or save as PDF"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -165,7 +165,7 @@ export default function ExitDocumentsModal({
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition"
+              className="p-2 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-500 border border-slate-200 transition"
             >
               <X className="w-4 h-4" />
             </button>

@@ -130,8 +130,9 @@ export default function AttendanceReportPdfModal({
           <div className="flex items-start justify-between pb-6 border-b-2 border-slate-900">
             <div>
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-700 flex items-center justify-center text-white font-black text-lg shadow">
-                  WP
+                <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h2 className="text-xl font-black tracking-tight text-slate-900 leading-tight">

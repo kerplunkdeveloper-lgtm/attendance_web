@@ -1,27 +1,76 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import {
-  Sparkles,
-  Lock,
-  Mail,
-  ArrowRight,
-  ShieldCheck,
-  Building2,
-  Users,
-  CheckCircle2,
-  Loader2,
-  Clock,
-} from "lucide-react";
-import { motion } from "framer-motion";
+import { Lock, Mail, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
+import MarketingAuthLayout, { AuthCard, authFieldRing } from "@/components/ui/MarketingAuthLayout";
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (res: { credential: string }) => void;
+          }) => void;
+          renderButton: (
+            el: HTMLElement,
+            options: Record<string, unknown>
+          ) => void;
+        };
+      };
+    };
+  }
+}
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuth();
-  const [email, setEmail] = useState("admin@workpulse.com");
-  const [password, setPassword] = useState("Password@123");
+  const { login, loginWithGoogle, isLoading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const loginWithGoogleRef = useRef(loginWithGoogle);
+
+  useEffect(() => {
+    loginWithGoogleRef.current = loginWithGoogle;
+  }, [loginWithGoogle]);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+    const existing = document.getElementById("google-gis");
+    const mount = () => {
+      const el = document.getElementById("google-signin");
+      if (!el || !window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (res) => {
+          if (res?.credential) await loginWithGoogleRef.current(res.credential);
+        },
+      });
+      el.innerHTML = "";
+      window.google.accounts.id.renderButton(el, {
+        theme: "outline",
+        size: "large",
+        width: 320,
+        text: "continue_with",
+      });
+    };
+    if (existing && window.google?.accounts?.id) {
+      mount();
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "google-gis";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.onload = mount;
+    document.body.appendChild(script);
+  }, [googleClientId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,138 +79,100 @@ export default function LoginPage() {
     setSubmitting(false);
   };
 
-  const handleQuickFill = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword("Password@123");
-  };
-
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-mesh-radial relative overflow-hidden">
-      {/* Background soft ambient glowing spheres */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-sky-600/15 rounded-full blur-3xl pointer-events-none" />
+    <MarketingAuthLayout>
+      <AuthCard>
+        <h2 className="text-[28px] font-black tracking-tight text-slate-950">Welcome back</h2>
+        <p className="mt-1 text-[13px] text-slate-400">Sign in to WorkPulse</p>
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
-        <div className="inline-flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 p-0.5 shadow-xl shadow-indigo-500/30">
-            <div className="w-full h-full bg-[#0c1222] rounded-[14px] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-indigo-400" />
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div>
+            <label className="mb-2 block text-[12px] font-bold text-slate-600">Work email</label>
+            <div className={`flex items-center gap-3 rounded-full border bg-white px-4 py-3.5 transition-all ${authFieldRing(emailFocused)}`}>
+              <Mail className="h-4 w-4 shrink-0 text-slate-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your work email"
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+                className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-300"
+                required
+              />
             </div>
           </div>
-          <span className="text-2xl font-black tracking-tight text-white">WorkPulse</span>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="text-[12px] font-bold text-slate-600">Password</label>
+              <Link
+                href="/forgot-password"
+                className="text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            <div className={`flex items-center gap-3 rounded-full border bg-white px-4 py-3.5 transition-all ${authFieldRing(passwordFocused)}`}>
+              <Lock className="h-4 w-4 shrink-0 text-slate-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                autoComplete="current-password"
+                className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-300"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || isLoading}
+            className="mt-1 flex w-full items-center justify-center gap-2 rounded-full bg-[#5B52F5] py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(91,82,245,0.7)] transition hover:bg-[#4F46E5] active:scale-[0.99] disabled:opacity-60"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                Sign in
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="relative my-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-100" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white px-3 text-[11px] text-slate-400">Or</span>
+          </div>
         </div>
 
-        <h2 className="text-2xl font-black tracking-tight text-white">
-          Sign in to your Enterprise Workspace
-        </h2>
-        <p className="mt-1 text-xs text-slate-400">
-          Smart Geofenced Attendance, Dynamic Rosters & Statutory Payroll
+        {googleClientId && (
+          <div id="google-signin" className="mb-4 flex justify-center min-h-[40px]" />
+        )}
+
+        <p className="text-center text-[13px] text-slate-500">
+          New organization?{" "}
+          <Link href="/register" className="font-bold text-indigo-600 hover:text-indigo-700">
+            Start a free trial
+          </Link>
         </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10 px-4 sm:px-0">
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-card py-8 px-6 sm:px-10 rounded-3xl border border-slate-800 shadow-2xl space-y-6"
-        >
-          {/* Quick Demo Personas Bar */}
-          <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-semibold text-indigo-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                1-Click Demo Personas:
-              </span>
-              <span className="text-slate-500 font-mono">Password@123</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-1.5 text-[11px]">
-              <button
-                type="button"
-                onClick={() => handleQuickFill("admin@workpulse.com")}
-                className="px-2 py-1.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 text-slate-300 hover:text-white border border-slate-700 transition font-medium text-center"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("hr@workpulse.com")}
-                className="px-2 py-1.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 text-slate-300 hover:text-white border border-slate-700 transition font-medium text-center"
-              >
-                Manager
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("employee@workpulse.com")}
-                className="px-2 py-1.5 rounded-xl bg-slate-800/80 hover:bg-indigo-600/30 text-slate-300 hover:text-white border border-slate-700 transition font-medium text-center"
-              >
-                Employee
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Corporate Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  className="w-full glass-input rounded-xl pl-10 pr-3 py-2.5 text-xs text-white"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Password</label>
-                <span className="text-[11px] text-indigo-400 hover:underline cursor-pointer">
-                  Forgot password?
-                </span>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full glass-input rounded-xl pl-10 pr-3 py-2.5 text-xs text-white font-mono"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting || isLoading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-600/25 transition flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Sign In to WorkPulse</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400">
-            Don't have an organization account?{" "}
-            <Link href="/register" className="font-semibold text-indigo-400 hover:text-indigo-300">
-              Register Free Trial
-            </Link>
-          </div>
-        </motion.div>
-      </div>
-    </div>
+      </AuthCard>
+    </MarketingAuthLayout>
   );
 }

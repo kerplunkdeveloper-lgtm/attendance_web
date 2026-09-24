@@ -10,7 +10,7 @@ import React, {
   useRef,
 } from "react";
 import { AttendanceTodayStatus } from "@/types";
-import { attendanceApi } from "@/lib/api";
+import { attendanceApi, getWebDeviceId } from "@/lib/api";
 import {
   enqueuePunch,
   getAllPendingPunches,
@@ -69,7 +69,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
   const [currentLocation, setCurrentLocation] = useState<GeoCoordinates | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [distanceToBranch, setDistanceToBranch] = useState<number | null>(null);
-  const [isWithinGeofence, setIsWithinGeofence] = useState<boolean>(true);
+  const [isWithinGeofence, setIsWithinGeofence] = useState<boolean>(false);
 
   // ── Offline tracking ────────────────────────────────────────────────────────
   const [isOnline, setIsOnline] = useState<boolean>(
@@ -79,21 +79,22 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const isSyncingRef = useRef(false);
+  const fetchTodayStatusRef = useRef<(() => Promise<void>) | null>(null);
 
   // ── Refresh pending count from IndexedDB ────────────────────────────────────
   const refreshPendingCount = useCallback(async () => {
-    const count = await getPendingCount();
+    const count = await getPendingCount(user?.id);
     setPendingPunchCount(count);
-  }, []);
+  }, [user?.id]);
 
   // ── Sync offline queue to server ────────────────────────────────────────────
   const triggerSync = useCallback(async () => {
-    if (isSyncingRef.current || !token) return;
+    if (isSyncingRef.current || !token || !user?.id) return;
     isSyncingRef.current = true;
     setSyncStatus("syncing");
 
     try {
-      const pending = await getAllPendingPunches();
+      const pending = await getAllPendingPunches(user.id);
       if (pending.length === 0) {
         setSyncStatus("idle");
         isSyncingRef.current = false;
@@ -116,7 +117,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
       }
 
       await refreshPendingCount();
-      await fetchTodayStatus();
+      await fetchTodayStatusRef.current?.();
 
       setSyncStatus("synced");
       setLastSyncedAt(new Date());
@@ -139,7 +140,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
       // Reset to idle after 5 seconds so badge clears
       setTimeout(() => setSyncStatus((prev) => (prev === "synced" ? "idle" : prev)), 5000);
     }
-  }, [token, refreshPendingCount]);
+  }, [token, user?.id, refreshPendingCount]);
 
   // ── Online / offline event listeners ────────────────────────────────────────
   useEffect(() => {
@@ -194,11 +195,10 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
         }
       },
       (error) => {
-        console.warn("GPS Location Warning:", error.message);
-        const defaultCoords = { latitude: 11.9344, longitude: 79.8358, accuracy: 10 };
-        setCurrentLocation(defaultCoords);
-        setLocationError(error.message);
-        setIsWithinGeofence(true);
+        setCurrentLocation(null);
+        setDistanceToBranch(null);
+        setIsWithinGeofence(false);
+        setLocationError(error.message || "Location permission is required to punch.");
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
     );
@@ -246,6 +246,10 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
   }, [token, isOnline]);
 
   useEffect(() => {
+    fetchTodayStatusRef.current = fetchTodayStatus;
+  }, [fetchTodayStatus]);
+
+  useEffect(() => {
     if (token) {
       fetchTodayStatus();
       refreshPendingCount();
@@ -274,7 +278,8 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
       type: OfflinePunch["type"],
       apiCall: () => Promise<any>,
       successMessage: string,
-      coords?: GeoCoordinates
+      coords?: GeoCoordinates,
+      metadata?: Pick<OfflinePunch, "workMode" | "note" | "wfhNote" | "deviceId">
     ): Promise<boolean> => {
       setIsActionLoading(true);
       const punchTimestamp = new Date().toISOString();
@@ -283,11 +288,13 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
         if (!isOnline) {
           // OFFLINE — save to IndexedDB
           await enqueuePunch({
+            ownerId: user?.id || "",
             type,
             timestamp: punchTimestamp,
             latitude: coords?.latitude,
             longitude: coords?.longitude,
             accuracy: coords?.accuracy,
+            ...metadata,
           });
           await refreshPendingCount();
           toast.success(`📴 ${successMessage} (saved offline — will sync when online)`, {
@@ -338,11 +345,13 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
         // Network error while "online" — save offline as fallback
         if (!navigator.onLine || err.code === "ERR_NETWORK" || err.message?.includes("Network")) {
           await enqueuePunch({
+            ownerId: user?.id || "",
             type,
             timestamp: punchTimestamp,
             latitude: coords?.latitude,
             longitude: coords?.longitude,
             accuracy: coords?.accuracy,
+            ...metadata,
           });
           await refreshPendingCount();
           toast.warning(`📴 Network offline — ${successMessage} saved locally.`, { duration: 5000 });
@@ -354,14 +363,19 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
         setIsActionLoading(false);
       }
     },
-    [isOnline, fetchTodayStatus, refreshPendingCount]
+    [isOnline, fetchTodayStatus, refreshPendingCount, user?.id]
   );
 
   // ── Individual punch actions ─────────────────────────────────────────────────
 
   const checkIn = useCallback(
     async (options?: PunchOptions): Promise<boolean> => {
-      const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
+      const remoteMode = ["WORK_FROM_HOME", "CLIENT_VISIT", "TRAVEL"].includes(options?.workMode || "");
+      if (!currentLocation && !remoteMode) {
+        toast.error("Location is required to punch. Allow GPS and try again.");
+        return false;
+      }
+      const coords = currentLocation || undefined;
       const modeLabel =
         options?.workMode === "SHOOT"
           ? "On-Site Shoot"
@@ -375,9 +389,10 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
 
       return handlePunch(
         "CHECK_IN",
-        () => attendanceApi.checkIn({ ...coords, ...options }),
+        () => attendanceApi.checkIn({ ...(coords || { latitude: 0, longitude: 0 }), ...options }),
         `Check-in Confirmed! Started shift in ${modeLabel} mode.`,
-        coords
+        coords,
+        { workMode: options?.workMode, note: options?.note, deviceId: getWebDeviceId() || undefined }
       );
     },
     [currentLocation, handlePunch]
@@ -385,12 +400,17 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
 
   const checkOut = useCallback(
     async (options?: PunchOptions): Promise<boolean> => {
-      const coords = currentLocation || { latitude: 11.9344, longitude: 79.8358, accuracy: 15 };
+      if (!currentLocation && !["WORK_FROM_HOME", "CLIENT_VISIT", "TRAVEL"].includes(options?.workMode || "")) {
+        toast.error("Location is required to punch. Allow GPS and try again.");
+        return false;
+      }
+      const coords = currentLocation || undefined;
       return handlePunch(
         "CHECK_OUT",
-        () => attendanceApi.checkOut({ ...coords, ...options }),
+        () => attendanceApi.checkOut({ ...(coords || { latitude: 0, longitude: 0 }), ...options }),
         "Check-out Confirmed! Shift concluded successfully.",
-        coords
+        coords,
+        { workMode: options?.workMode, note: options?.note, deviceId: getWebDeviceId() || undefined }
       );
     },
     [currentLocation, handlePunch]
@@ -429,7 +449,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
     const punchTimestamp = new Date().toISOString();
     try {
       if (!isOnline) {
-        await enqueuePunch({ type: "WFH_CHECK_IN", timestamp: punchTimestamp, wfhNote: note });
+        await enqueuePunch({ ownerId: user?.id || "", type: "WFH_CHECK_IN", timestamp: punchTimestamp, wfhNote: note, deviceId: getWebDeviceId() || undefined });
         await refreshPendingCount();
         setTodayStatus((prev: any) => ({
           ...(prev || {}),
@@ -455,7 +475,7 @@ export const AttendanceProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsActionLoading(false);
     }
-  }, [isOnline, fetchTodayStatus, refreshPendingCount]);
+  }, [isOnline, fetchTodayStatus, refreshPendingCount, user?.id]);
 
   return (
     <AttendanceContext.Provider

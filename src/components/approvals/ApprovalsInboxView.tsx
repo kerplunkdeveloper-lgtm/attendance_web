@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { correctionsApi, leavesApi, overtimeApi, expensesApi } from "@/lib/api";
-import { formatDate, formatTime, formatCurrency } from "@/lib/utils";
+import { formatDate, formatTime, formatCurrency, unwrapList } from "@/lib/utils";
 import {
   ShieldCheck,
   Clock,
@@ -38,19 +38,21 @@ export default function ApprovalsInboxView() {
         expensesApi.getAllClaims(),
       ]);
 
-      if (corrRes.status === "fulfilled" && corrRes.value?.success) {
-        setCorrections(corrRes.value.data || corrRes.value.corrections || []);
+      if (corrRes.status === "fulfilled") {
+        setCorrections(unwrapList(corrRes.value));
       }
-      if (leaveRes.status === "fulfilled" && leaveRes.value?.success) {
-        const raw = leaveRes.value.data || leaveRes.value.leaveRequests || [];
-        setLeaves(raw.filter((l: any) => l.status === "PENDING"));
+      if (leaveRes.status === "fulfilled") {
+        setLeaves(unwrapList(leaveRes.value).filter((l: any) => l.status === "PENDING"));
       }
-      if (otRes.status === "fulfilled" && otRes.value?.success) {
-        setOvertimes(otRes.value.data || otRes.value.overtimeRequests || []);
+      if (otRes.status === "fulfilled") {
+        setOvertimes(unwrapList(otRes.value));
       }
-      if (expRes.status === "fulfilled" && expRes.value?.success) {
-        const raw = expRes.value.data || expRes.value.claims || [];
-        setExpenses(raw.filter((e: any) => e.status === "SUBMITTED" || e.status === "UNDER_REVIEW"));
+      if (expRes.status === "fulfilled") {
+        setExpenses(
+          unwrapList(expRes.value).filter((e: any) =>
+            ["PENDING", "SUBMITTED", "UNDER_REVIEW"].includes(e.status)
+          )
+        );
       }
     } catch (err) {
       console.error("Failed to load approvals inbox:", err);
@@ -140,35 +142,35 @@ export default function ApprovalsInboxView() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <ShieldCheck className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <ShieldCheck className="w-7 h-7 text-indigo-600" />
             Unified Manager Approvals Inbox
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Centralized decision hub for employee regularization, leave, overtime, and reimbursement requests
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-xs font-semibold text-indigo-300">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-700">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
           <span>{totalPending} Total Requests Awaiting Review</span>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab("CORRECTIONS")}
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
             activeTab === "CORRECTIONS"
               ? "bg-indigo-600 text-white shadow"
-              : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
           <Clock className="w-4 h-4" />
           <span>Punch Regularization</span>
           {corrections.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-bold">
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
               {corrections.length}
             </span>
           )}
@@ -179,13 +181,13 @@ export default function ApprovalsInboxView() {
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
             activeTab === "LEAVES"
               ? "bg-indigo-600 text-white shadow"
-              : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
           <CalendarDays className="w-4 h-4" />
           <span>Leave Requests</span>
           {leaves.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-bold">
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
               {leaves.length}
             </span>
           )}
@@ -196,13 +198,13 @@ export default function ApprovalsInboxView() {
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
             activeTab === "OVERTIME"
               ? "bg-indigo-600 text-white shadow"
-              : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
           <Layers className="w-4 h-4" />
           <span>Overtime Credits</span>
           {overtimes.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-bold">
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
               {overtimes.length}
             </span>
           )}
@@ -213,13 +215,13 @@ export default function ApprovalsInboxView() {
           className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
             activeTab === "EXPENSES"
               ? "bg-indigo-600 text-white shadow"
-              : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              : "bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
           }`}
         >
           <Wallet className="w-4 h-4" />
           <span>Expense Claims</span>
           {expenses.length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-white text-[10px] font-bold">
+            <span className="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
               {expenses.length}
             </span>
           )}
@@ -227,7 +229,7 @@ export default function ApprovalsInboxView() {
       </div>
 
       {/* Tab Panels */}
-      <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-xl p-6">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm p-6">
         {loading ? (
           <div className="py-16 text-center text-slate-500">
             <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500 mb-2" />
@@ -243,21 +245,21 @@ export default function ApprovalsInboxView() {
               {corrections.map((corr) => (
                 <div
                   key={corr.id}
-                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800"
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-white">
+                      <span className="font-bold text-sm text-slate-900">
                         {corr.employee?.firstName} {corr.employee?.lastName}
                       </span>
-                      <span className="text-xs text-indigo-400">
+                      <span className="text-xs text-indigo-600 font-medium">
                         ({corr.employee?.department?.name || corr.employee?.employeeCode})
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300 mt-1">
-                      Target Date: <span className="font-semibold text-white">{formatDate(corr.attendance?.date || corr.createdAt)}</span> | Requested In: {formatTime(corr.requestedCheckIn)} / Out: {formatTime(corr.requestedCheckOut)}
+                    <p className="text-xs text-slate-600 mt-1">
+                      Target Date: <span className="font-semibold text-slate-900">{formatDate(corr.attendance?.date || corr.createdAt)}</span> | Requested In: {formatTime(corr.requestedCheckIn)} / Out: {formatTime(corr.requestedCheckOut)}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5 italic">Reason: "{corr.reason}"</p>
+                    <p className="text-xs text-slate-500 mt-0.5 italic">Reason: "{corr.reason}"</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -270,7 +272,7 @@ export default function ApprovalsInboxView() {
                     </button>
                     <button
                       onClick={() => handleReviewCorrection(corr.id, "REJECTED")}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 font-semibold text-xs transition flex items-center gap-1"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition flex items-center gap-1"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       Reject
@@ -290,21 +292,21 @@ export default function ApprovalsInboxView() {
               {leaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800"
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-white">
+                      <span className="font-bold text-sm text-slate-900">
                         {leave.employee?.firstName} {leave.employee?.lastName}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700">
                         {leave.leaveType?.name || "Leave"}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300 mt-1">
+                    <p className="text-xs text-slate-600 mt-1">
                       {formatDate(leave.startDate)} to {formatDate(leave.endDate)} ({leave.totalDays} days)
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5 italic">Reason: "{leave.reason}"</p>
+                    <p className="text-xs text-slate-500 mt-0.5 italic">Reason: "{leave.reason}"</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -317,7 +319,7 @@ export default function ApprovalsInboxView() {
                     </button>
                     <button
                       onClick={() => handleReviewLeave(leave.id, "REJECTED")}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 font-semibold text-xs transition flex items-center gap-1"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition flex items-center gap-1"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       Reject
@@ -337,16 +339,16 @@ export default function ApprovalsInboxView() {
               {overtimes.map((ot) => (
                 <div
                   key={ot.id}
-                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800"
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-white">
+                      <span className="font-bold text-sm text-slate-900">
                         {ot.employee?.firstName} {ot.employee?.lastName}
                       </span>
-                      <span className="font-bold text-amber-400 text-xs">{ot.hours || 0} Hours OT</span>
+                      <span className="font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">{ot.hours || 0} Hours OT</span>
                     </div>
-                    <p className="text-xs text-slate-300 mt-1">Date: {formatDate(ot.date)}</p>
+                    <p className="text-xs text-slate-600 mt-1">Date: {formatDate(ot.date)}</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -358,7 +360,7 @@ export default function ApprovalsInboxView() {
                     </button>
                     <button
                       onClick={() => handleReviewOvertime(ot.id, "REJECTED")}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 font-semibold text-xs transition"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition"
                     >
                       Reject
                     </button>
@@ -377,21 +379,21 @@ export default function ApprovalsInboxView() {
               {expenses.map((exp) => (
                 <div
                   key={exp.id}
-                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800"
+                  className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50/80 border border-slate-200"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm text-white">
+                      <span className="font-bold text-sm text-slate-900">
                         {exp.employee?.firstName} {exp.employee?.lastName}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-800">
                         {exp.category}
                       </span>
-                      <span className="font-black text-emerald-400 text-xs">
+                      <span className="font-black text-emerald-700 text-xs">
                         {formatCurrency(exp.amount)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 italic">"{exp.description}"</p>
+                    <p className="text-xs text-slate-500 mt-1 italic">"{exp.description}"</p>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -403,7 +405,7 @@ export default function ApprovalsInboxView() {
                     </button>
                     <button
                       onClick={() => handleReviewExpense(exp.id, "REJECTED")}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 font-semibold text-xs transition"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition"
                     >
                       Reject
                     </button>

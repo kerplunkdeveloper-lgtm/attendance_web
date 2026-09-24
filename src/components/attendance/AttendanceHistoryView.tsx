@@ -4,24 +4,26 @@ import React, { useState, useEffect } from "react";
 import { Attendance, AttendanceStatus } from "@/types";
 import { attendanceApi } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { formatDate, formatTime, formatDurationMinutes } from "@/lib/utils";
+import { formatDate, formatTime, unwrapList } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import {
-  Calendar,
   Filter,
   CheckCircle2,
   Clock,
-  AlertTriangle,
   Home,
-  UserCheck,
   Plus,
   RefreshCw,
   Edit3,
   ChevronDown,
-  ChevronUp,
   CalendarDays,
+  Search,
+  TrendingUp,
+  FileText,
+  AlertTriangle,
+  MoreVertical,
 } from "lucide-react";
 import RegularizationModal from "./RegularizationModal";
+import TimeSelect from "@/components/ui/TimeSelect";
 import { toast } from "sonner";
 
 export default function AttendanceHistoryView() {
@@ -31,7 +33,10 @@ export default function AttendanceHistoryView() {
 
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [searchFilter, setSearchFilter] = useState<string>("");
   const [statusDropdownOpen, setStatusDropdownOpen] = useState<boolean>(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
   const [regularizationModalOpen, setRegularizationModalOpen] = useState<boolean>(false);
@@ -53,15 +58,12 @@ export default function AttendanceHistoryView() {
   const [adminReason, setAdminReason] = useState("");
   const [submittingAdminMark, setSubmittingAdminMark] = useState(false);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (nextPage = page) => {
     setLoading(true);
     try {
-      const res = await attendanceApi.getMyAttendance();
-      if (res?.success && Array.isArray(res.data)) {
-        setAttendances(res.data);
-      } else if (Array.isArray(res)) {
-        setAttendances(res);
-      }
+      const res = await attendanceApi.getMyAttendance({ page: nextPage, limit: 20 });
+      setAttendances(unwrapList<Attendance>(res));
+      setTotalPages(res?.totalPages || 1);
     } catch (err: any) {
       console.error("Failed to load attendance logs:", err);
     } finally {
@@ -70,8 +72,8 @@ export default function AttendanceHistoryView() {
   };
 
   useEffect(() => {
-    fetchHistory();
-  }, []);
+    fetchHistory(page);
+  }, [page]);
 
   const handleAdminMarkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,334 +106,273 @@ export default function AttendanceHistoryView() {
   };
 
   const filteredLogs = attendances.filter((att) => {
-    if (filterStatus === "ALL") return true;
-    return att.status === filterStatus;
+    if (filterStatus !== "ALL" && att.status !== filterStatus) return false;
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      const dateStr = att.date ? String(att.date).toLowerCase() : "";
+      const statusStr = att.status ? att.status.toLowerCase() : "";
+      const noteStr = att.wfhNote ? att.wfhNote.toLowerCase() : "";
+      return dateStr.includes(q) || statusStr.includes(q) || noteStr.includes(q);
+    }
+    return true;
   });
 
   const totalPresent = attendances.filter((a) => a.status === "PRESENT" || a.status === "WORK_FROM_HOME").length;
   const totalLate = attendances.filter((a) => a.status === "LATE" || (a.lateMinutes && a.lateMinutes > 0)).length;
   const totalWfh = attendances.filter((a) => a.isWorkFromHome || a.status === "WORK_FROM_HOME").length;
   const totalWorkHours = attendances.reduce((acc, a) => acc + (Number(a.workHours) || 0), 0);
+  const totalRecords = attendances.length;
+  const presentPct = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+  const latePct = totalRecords > 0 ? Math.round((totalLate / totalRecords) * 100) : 0;
+  const wfhPct = totalRecords > 0 ? Math.round((totalWfh / totalRecords) * 100) : 0;
+  const avgHours = totalPresent > 0 ? (totalWorkHours / totalPresent).toFixed(1) : "0.0";
 
   const getStatusBadge = (status: AttendanceStatus) => {
     switch (status) {
       case "PRESENT":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "LATE":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        return "bg-amber-50 text-amber-700 border-amber-200";
       case "HALF_DAY":
-        return "bg-orange-500/10 text-orange-400 border-orange-500/30";
+        return "bg-orange-50 text-orange-700 border-orange-200";
       case "WORK_FROM_HOME":
-        return "bg-sky-500/10 text-sky-400 border-sky-500/30";
+        return "bg-sky-50 text-sky-700 border-sky-200";
       case "ON_LEAVE":
-        return "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
+        return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "ABSENT":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+        return "bg-rose-50 text-rose-700 border-rose-200";
       default:
-        return "bg-slate-800 text-slate-300 border-slate-700";
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Metric Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <button
-          type="button"
+    <div className="space-y-5">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          1. 4 Metric Stat Cards (Matching dashboard_design_2.png)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Present Days */}
+        <div
           onClick={() => setFilterStatus(filterStatus === "PRESENT" ? "ALL" : "PRESENT")}
-          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
-            filterStatus === "PRESENT"
-              ? "border-emerald-500 bg-emerald-950/20 ring-1 ring-emerald-500/40"
-              : "border-slate-800 hover:border-emerald-500/40"
+          className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-emerald-300 ${
+            filterStatus === "PRESENT" ? "ring-2 ring-emerald-500 border-emerald-500" : "border-slate-200"
           }`}
         >
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Present Days
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+            <span className="flex items-center gap-0.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              <span>{presentPct}%</span>
             </span>
-            <span className="text-[9px] text-emerald-400 font-mono">
-              {filterStatus === "PRESENT" ? "Active" : "Filter"}
-            </span>
-          </p>
-          <p className="text-2xl font-bold text-white">{totalPresent}</p>
-        </button>
+          </div>
+          <p className="text-xs text-slate-500 font-semibold mb-0.5">Present Days</p>
+          <p className="text-2xl font-extrabold text-slate-900 mb-1">{totalPresent}</p>
+          <p className="text-[11px] text-slate-400 font-medium">{presentPct}% of logged records</p>
+        </div>
 
-        <button
-          type="button"
+        {/* Late Clock-ins */}
+        <div
           onClick={() => setFilterStatus(filterStatus === "LATE" ? "ALL" : "LATE")}
-          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
-            filterStatus === "LATE"
-              ? "border-amber-500 bg-amber-950/20 ring-1 ring-amber-500/40"
-              : "border-slate-800 hover:border-amber-500/40"
+          className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-amber-300 ${
+            filterStatus === "LATE" ? "ring-2 ring-amber-500 border-amber-500" : "border-slate-200"
           }`}
         >
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-              Late Clock-Ins
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+            <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              <span>{latePct}%</span>
             </span>
-            <span className="text-[9px] text-amber-400 font-mono">
-              {filterStatus === "LATE" ? "Active" : "Filter"}
-            </span>
-          </p>
-          <p className="text-2xl font-bold text-amber-400">{totalLate}</p>
-        </button>
+          </div>
+          <p className="text-xs text-slate-500 font-semibold mb-0.5">Late Clock-ins</p>
+          <p className="text-2xl font-extrabold text-slate-900 mb-1">{totalLate}</p>
+          <p className="text-[11px] text-slate-400 font-medium">{latePct}% of logged records</p>
+        </div>
 
-        <button
-          type="button"
+        {/* WFH / Remote Days */}
+        <div
           onClick={() => setFilterStatus(filterStatus === "WORK_FROM_HOME" ? "ALL" : "WORK_FROM_HOME")}
-          className={`glass-card rounded-2xl p-4 border text-left transition cursor-pointer ${
-            filterStatus === "WORK_FROM_HOME"
-              ? "border-sky-500 bg-sky-950/20 ring-1 ring-sky-500/40"
-              : "border-slate-800 hover:border-sky-500/40"
+          className={`p-4 rounded-2xl bg-white border transition-all cursor-pointer shadow-2xs hover:shadow-md hover:border-sky-300 ${
+            filterStatus === "WORK_FROM_HOME" ? "ring-2 ring-sky-500 border-sky-500" : "border-slate-200"
           }`}
         >
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <Home className="w-3.5 h-3.5 text-sky-400" />
-              WFH Remote Days
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+              <Home className="w-4 h-4" />
+            </div>
+            <span className="flex items-center gap-0.5 text-xs font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              <span>{wfhPct}%</span>
             </span>
-            <span className="text-[9px] text-sky-400 font-mono">
-              {filterStatus === "WORK_FROM_HOME" ? "Active" : "Filter"}
-            </span>
-          </p>
-          <p className="text-2xl font-bold text-sky-400">{totalWfh}</p>
-        </button>
+          </div>
+          <p className="text-xs text-slate-500 font-semibold mb-0.5">WFH / Remote Days</p>
+          <p className="text-2xl font-extrabold text-slate-900 mb-1">{totalWfh}</p>
+          <p className="text-[11px] text-slate-400 font-medium">{wfhPct}% of logged records</p>
+        </div>
 
-        <div className="glass-card rounded-2xl p-4 border border-slate-800">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase mb-1 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-indigo-400" />
-            Total Hours
-          </p>
-          <p className="text-2xl font-bold text-indigo-300">{totalWorkHours.toFixed(1)} hrs</p>
+        {/* Total Hours */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+          <div className="flex items-center justify-between mb-2">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+            <span className="flex items-center gap-0.5 text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+              <TrendingUp className="w-3 h-3" />
+              <span>{avgHours}h</span>
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 font-semibold mb-0.5">Total Hours</p>
+          <p className="text-2xl font-extrabold text-slate-900 mb-1">{totalWorkHours.toFixed(1)} hrs</p>
+          <p className="text-[11px] text-slate-400 font-medium">Avg. {avgHours} hrs/day</p>
         </div>
       </div>
 
-      {/* Control Bar & Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-300">Filter By Status:</span>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="glass-input rounded-xl px-3 py-1.5 text-xs text-slate-200 bg-slate-900 border border-slate-700"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="PRESENT">Present Today</option>
-            <option value="ON_LEAVE">On Leave</option>
-            <option value="LATE">Late Arrivals</option>
-            <option value="WORK_FROM_HOME">Work From Home</option>
-            <option value="HALF_DAY">Half Day</option>
-            <option value="ABSENT">Absent</option>
-          </select>
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          2. Control Bar: Filter By Status + Search + Manual Mark (Admin)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+        {/* Left: Filter By Status + Search Input */}
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <span className="text-xs font-semibold text-slate-700">Filter By Status:</span>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="rounded-xl px-3 py-1.5 text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="PRESENT">Present Today</option>
+              <option value="ON_LEAVE">On Leave</option>
+              <option value="LATE">Late Arrivals</option>
+              <option value="WORK_FROM_HOME">Work From Home</option>
+              <option value="HALF_DAY">Half Day</option>
+              <option value="ABSENT">Absent</option>
+            </select>
+          </div>
+
+          {/* Search by date or note */}
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Search by date, status or notes..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
           {filterStatus !== "ALL" && (
             <button
               onClick={() => setFilterStatus("ALL")}
-              className="text-[11px] text-indigo-400 hover:text-indigo-300 underline ml-1"
+              className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold"
             >
               Reset
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Right: Refresh & Admin Action Button */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
-            onClick={fetchHistory}
-            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition"
+            onClick={() => fetchHistory()}
+            className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 transition"
             title="Refresh Logs"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
 
           {(role === "COMPANY_ADMIN" || role === "SUPER_ADMIN" || role === "MANAGER") && (
             <button
               onClick={() => setAdminMarkModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              Manual Mark (Admin)
+              <span>Manual Mark (Admin)</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Attendance Logs Table */}
-      <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          3. Attendance Logs Table (Matching dashboard_design_2.png)
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-800 font-semibold">
-              <tr>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4">Punch In</th>
-                <th className="py-3.5 px-4">Punch Out</th>
-                <th className="py-3.5 px-4">Work Hours</th>
-                <th className="py-3.5 px-4">Breaks</th>
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50/80 text-slate-500 text-[11px] uppercase tracking-wider border-b border-slate-200 font-bold">
+              <tr className="whitespace-nowrap">
+                <th className="py-3.5 px-5">DATE</th>
+                <th className="py-3.5 px-4">PUNCH IN</th>
+                <th className="py-3.5 px-4">PUNCH OUT</th>
+                <th className="py-3.5 px-4">WORK HOURS</th>
+                <th className="py-3.5 px-4">BREAKS</th>
                 <th className="py-3.5 px-4 relative">
-                  <button
-                    type="button"
+                  <div
                     onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-                    className="flex items-center gap-1.5 hover:text-white transition uppercase font-semibold text-left focus:outline-none"
+                    className="flex items-center gap-1 hover:text-slate-800 transition cursor-pointer select-none"
                   >
-                    <span>Status</span>
-                    {filterStatus !== "ALL" && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-300 lowercase font-bold">
-                        {filterStatus}
-                      </span>
-                    )}
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform ${
-                        statusDropdownOpen ? "rotate-180 text-indigo-400" : "text-slate-400"
-                      }`}
-                    />
-                  </button>
-
-                  {/* Status Dropdown */}
-                  {statusDropdownOpen && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute top-full left-0 mt-2 w-52 bg-slate-900 border border-slate-700/90 rounded-2xl shadow-2xl p-2 z-50 text-left normal-case tracking-normal backdrop-blur-xl"
-                    >
-                      <div className="text-[10px] font-bold text-slate-400 px-3 py-1 uppercase border-b border-slate-800">
-                        Filter Column
-                      </div>
-                      <div className="py-1 space-y-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("ALL");
-                            setStatusDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
-                            filterStatus === "ALL"
-                              ? "bg-indigo-600 text-white font-semibold"
-                              : "text-slate-300 hover:bg-slate-800"
-                          }`}
-                        >
-                          <span>All Statuses</span>
-                          <span className="text-[10px] opacity-70 font-mono">{attendances.length}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("PRESENT");
-                            setStatusDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
-                            filterStatus === "PRESENT"
-                              ? "bg-emerald-600 text-white font-semibold"
-                              : "text-slate-300 hover:bg-slate-800"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            Present Today
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                            {totalPresent}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("ON_LEAVE");
-                            setStatusDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
-                            filterStatus === "ON_LEAVE"
-                              ? "bg-indigo-600 text-white font-semibold"
-                              : "text-slate-300 hover:bg-slate-800"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
-                            On Leave
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                            {attendances.filter((a) => a.status === "ON_LEAVE").length}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("LATE");
-                            setStatusDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
-                            filterStatus === "LATE"
-                              ? "bg-amber-600 text-white font-semibold"
-                              : "text-slate-300 hover:bg-slate-800"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            Late Arrivals
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
-                            {totalLate}
-                          </span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus("WORK_FROM_HOME");
-                            setStatusDropdownOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs transition ${
-                            filterStatus === "WORK_FROM_HOME"
-                              ? "bg-sky-600 text-white font-semibold"
-                              : "text-slate-300 hover:bg-slate-800"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <Home className="w-3.5 h-3.5 text-sky-400" />
-                            Remote WFH
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">
-                            {totalWfh}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <span>STATUS</span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </div>
                 </th>
-                <th className="py-3.5 px-4 text-right">Regularization</th>
+                <th className="py-3.5 px-4">REGULARIZATION</th>
+                <th className="py-3.5 px-5 text-right">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10 text-slate-500">
-                    Loading attendance records...
+                  <td colSpan={8} className="text-center py-12 text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
+                    <span>Loading attendance records...</span>
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
+                /* Empty state matching dashboard_design_2.png */
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-slate-500">
-                    No attendance logs found for this filter.
+                  <td colSpan={8} className="text-center py-16 px-4">
+                    <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
+                      {/* Document with Magnifier Icon Graphic */}
+                      <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+                        <FileText className="w-8 h-8 stroke-[1.5]" />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900">No attendance records found</h4>
+                      <p className="text-xs text-slate-500 text-center leading-relaxed">
+                        Attendance records will appear here once you start punching in.
+                      </p>
+                      <button
+                        onClick={() => fetchHistory()}
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-2 transition"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Refresh</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3.5 px-4 font-semibold text-white">
+                  <tr key={log.id} className="hover:bg-slate-50/70 transition whitespace-nowrap">
+                    <td className="py-3.5 px-5 font-semibold text-slate-900">
                       {formatDate(log.date)}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300">
+                    <td className="py-3.5 px-4 font-mono text-slate-700">
                       {formatTime(log.checkIn)}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-300">
+                    <td className="py-3.5 px-4 font-mono text-slate-700">
                       {formatTime(log.checkOut)}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-indigo-300">
+                    <td className="py-3.5 px-4 font-semibold text-indigo-600">
                       {log.workHours ? `${log.workHours.toFixed(1)} hrs` : "-"}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400">
+                    <td className="py-3.5 px-4 text-slate-500">
                       {log.totalBreakMinutes ? `${log.totalBreakMinutes} mins` : "-"}
                     </td>
                     <td className="py-3.5 px-4">
@@ -443,16 +384,28 @@ export default function AttendanceHistoryView() {
                         {log.status.replace(/_/g, " ")}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4">
                       <button
                         onClick={() => {
                           setSelectedAttendance(log);
                           setRegularizationModalOpen(true);
                         }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition inline-flex items-center gap-1"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition inline-flex items-center gap-1 shadow-2xs"
                       >
-                        <Edit3 className="w-3 h-3 text-indigo-400" />
-                        Regularize
+                        <Edit3 className="w-3 h-3 text-indigo-600" />
+                        <span>Regularize</span>
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <button
+                        onClick={() => {
+                          setSelectedAttendance(log);
+                          setRegularizationModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                        title="Actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -461,9 +414,34 @@ export default function AttendanceHistoryView() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Regularization Modal */}
+      {/* Regularization Request Modal */}
       <RegularizationModal
         isOpen={regularizationModalOpen}
         attendance={selectedAttendance}
@@ -473,16 +451,16 @@ export default function AttendanceHistoryView() {
 
       {/* Admin Manual Mark Modal */}
       {adminMarkModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-1">Administrative Attendance Override</h3>
-            <p className="text-xs text-slate-400 mb-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-900">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Administrative Attendance Override</h3>
+            <p className="text-xs text-slate-500 mb-4">
               Directly mark or correct attendance for any employee (bypasses geofence)
             </p>
 
             <form onSubmit={handleAdminMarkSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Employee ID / Code
                 </label>
                 <input
@@ -490,27 +468,27 @@ export default function AttendanceHistoryView() {
                   value={adminEmployeeId}
                   onChange={(e) => setAdminEmployeeId(e.target.value)}
                   placeholder="Enter Employee UUID or leave empty for self"
-                  className="w-full glass-input rounded-xl p-2.5 text-xs"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date</label>
                   <input
                     type="date"
                     value={adminDate}
                     onChange={(e) => setAdminDate(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
                   <select
                     value={adminStatus}
                     onChange={(e) => setAdminStatus(e.target.value as AttendanceStatus)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900"
                   >
                     <option value="PRESENT">PRESENT</option>
                     <option value="LATE">LATE</option>
@@ -524,50 +502,50 @@ export default function AttendanceHistoryView() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">In Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">In Time</label>
+                  <TimeSelect
                     value={adminInTime}
-                    onChange={(e) => setAdminInTime(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    onChange={setAdminInTime}
+                    defaultPeriod="AM"
+                    ariaLabel="In time"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Out Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Out Time</label>
+                  <TimeSelect
                     value={adminOutTime}
-                    onChange={(e) => setAdminOutTime(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    onChange={setAdminOutTime}
+                    defaultPeriod="PM"
+                    ariaLabel="Out time"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Reason / Note</label>
-                <textarea
-                  rows={2}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Admin Reason</label>
+                <input
+                  type="text"
                   value={adminReason}
                   onChange={(e) => setAdminReason(e.target.value)}
-                  placeholder="e.g. Official tour, biometric hardware sync issue..."
-                  className="w-full glass-input rounded-xl p-2.5 text-xs resize-none"
+                  placeholder="e.g. Approved manual check-in or regularized"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setAdminMarkModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingAdminMark}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition"
+                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition"
                 >
-                  {submittingAdminMark ? "Saving..." : "Save Record"}
+                  {submittingAdminMark ? "Submitting..." : "Save Record"}
                 </button>
               </div>
             </form>

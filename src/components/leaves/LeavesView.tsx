@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { LeaveRequest, LeaveBalance, LeaveType } from "@/types";
 import { leavesApi } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { formatDate } from "@/lib/utils";
+import { formatDate, unwrapList } from "@/lib/utils";
 import {
   CalendarDays,
   Plus,
@@ -56,21 +56,19 @@ export default function LeavesView() {
         leavesApi.getMyLeaves(),
       ]);
 
-      if (typesRes.status === "fulfilled" && typesRes.value?.success) {
-        setLeaveTypes(typesRes.value.data || typesRes.value.leaveTypes || []);
+      if (typesRes.status === "fulfilled") {
+        setLeaveTypes(unwrapList(typesRes.value));
       }
-      if (balRes.status === "fulfilled" && balRes.value?.success) {
-        setBalances(balRes.value.data || balRes.value.balances || []);
+      if (balRes.status === "fulfilled") {
+        setBalances(unwrapList(balRes.value));
       }
-      if (myRes.status === "fulfilled" && myRes.value?.success) {
-        setMyRequests(myRes.value.data || myRes.value.leaveRequests || []);
+      if (myRes.status === "fulfilled") {
+        setMyRequests(unwrapList(myRes.value));
       }
 
       if (canApprove) {
         const teamRes = await leavesApi.getAllLeaves();
-        if (teamRes?.success) {
-          setTeamRequests(teamRes.data || teamRes.leaveRequests || []);
-        }
+        setTeamRequests(unwrapList(teamRes));
       }
     } catch (err) {
       console.error("Failed to load leaves:", err);
@@ -148,11 +146,11 @@ export default function LeavesView() {
       {/* Top Banner & Apply CTA */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <CalendarDays className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <CalendarDays className="w-7 h-7 text-indigo-600" />
             Leave Entitlements & Time Off
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Track statutory leave quotas, submit time-off applications, and review team requests
           </p>
         </div>
@@ -164,7 +162,7 @@ export default function LeavesView() {
             }
             setApplyModalOpen(true);
           }}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-xs flex items-center gap-2 shadow-sm transition"
         >
           <Plus className="w-4 h-4" />
           Apply for Leave
@@ -175,83 +173,130 @@ export default function LeavesView() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {balances.length === 0 ? (
           <>
-            <div className="glass-card rounded-2xl p-5 border border-slate-800">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-400">Casual Leave (CL)</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+                <span className="text-xs font-semibold text-slate-500">Casual Leave (CL)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   Standard
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">12</span>
-                <span className="text-xs text-slate-400">/ 12 days remaining</span>
+                <span className="text-3xl font-black text-slate-900">12</span>
+                <span className="text-xs text-slate-500">/ 12 days remaining</span>
               </div>
             </div>
-            <div className="glass-card rounded-2xl p-5 border border-slate-800">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-400">Sick Leave (SL)</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300">
+                <span className="text-xs font-semibold text-slate-500">Sick Leave (SL)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   Paid
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">10</span>
-                <span className="text-xs text-slate-400">/ 10 days remaining</span>
+                <span className="text-3xl font-black text-emerald-600">10</span>
+                <span className="text-xs text-slate-500">/ 10 days remaining</span>
               </div>
             </div>
-            <div className="glass-card rounded-2xl p-5 border border-slate-800">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-400">Privilege / Earned (EL)</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300">
+                <span className="text-xs font-semibold text-slate-500">Privilege / Earned (EL)</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
                   Accrued
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-sky-400">15</span>
-                <span className="text-xs text-slate-400">/ 15 days remaining</span>
+                <span className="text-3xl font-black text-sky-600">15</span>
+                <span className="text-xs text-slate-500">/ 15 days remaining</span>
               </div>
             </div>
-            <div className="glass-card rounded-2xl p-5 border border-slate-800">
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-400">Comp-Off Credit</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                <span className="text-xs font-semibold text-slate-500">Comp-Off Credit</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                   Rest Day OT
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-amber-400">2</span>
-                <span className="text-xs text-slate-400">days accrued</span>
+                <span className="text-3xl font-black text-amber-600">2</span>
+                <span className="text-xs text-slate-500">days accrued</span>
               </div>
             </div>
           </>
         ) : (
           balances.map((b) => (
-            <div key={b.id} className="glass-card rounded-2xl p-5 border border-slate-800">
+            <div key={b.id} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-400">
+                <span className="text-xs font-semibold text-slate-500">
                   {b.leaveType?.name || "Leave Quota"}
                 </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                   {b.leaveType?.code || "LEAVE"}
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-white">{b.remainingDays}</span>
-                <span className="text-xs text-slate-400">/ {b.totalDays} days</span>
+                <span className="text-3xl font-black text-slate-900">{b.remainingDays}</span>
+                <span className="text-xs text-slate-500">/ {b.totalDays} days</span>
               </div>
             </div>
           ))
         )}
       </div>
 
+      {(role === "SUPER_ADMIN" || role === "COMPANY_ADMIN") && (
+        <div className="bg-white rounded-2xl border p-4 flex flex-wrap gap-2 text-xs items-end">
+          <input id="lt-name" placeholder="Type name" className="px-3 py-2 rounded-xl border" />
+          <input id="lt-code" placeholder="Code" className="w-20 px-3 py-2 rounded-xl border" />
+          <input id="lt-days" type="number" placeholder="Days" className="w-20 px-3 py-2 rounded-xl border" />
+          <button
+            onClick={async () => {
+              const name = (document.getElementById("lt-name") as HTMLInputElement)?.value;
+              const code = (document.getElementById("lt-code") as HTMLInputElement)?.value;
+              const daysAllowed = Number((document.getElementById("lt-days") as HTMLInputElement)?.value || 12);
+              const res = await leavesApi.createType({ name, code, daysAllowed, isPaid: true });
+              if (res?.success) {
+                toast.success("Leave type created");
+                loadData();
+              } else toast.error(res?.message || "Failed");
+            }}
+            className="px-3 py-2 rounded-xl bg-[#4F46E5] text-white font-semibold"
+          >
+            Add type
+          </button>
+          <button
+            onClick={async () => {
+              const y = new Date().getFullYear();
+              const res = await leavesApi.carryForward({ fromYear: y - 1, toYear: y, maxDays: 15 });
+              if (res?.success) toast.success(`Carried ${res.data?.balancesUpdated || 0} balances`);
+              else toast.error(res?.message || "Failed");
+            }}
+            className="px-3 py-2 rounded-xl border font-semibold"
+          >
+            Carry forward last year
+          </button>
+          {leaveTypes.map((t) => (
+            <button
+              key={t.id}
+              onClick={async () => {
+                if (!confirm(`Delete ${t.name}?`)) return;
+                await leavesApi.deleteType(t.id);
+                loadData();
+              }}
+              className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700"
+            >
+              Delete {t.code}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800">
+      <div className="flex items-center gap-2 border-b border-slate-200">
         <button
           onClick={() => setActiveTab("MY_LEAVES")}
           className={`pb-3 px-4 text-xs font-semibold border-b-2 transition ${
             activeTab === "MY_LEAVES"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
           My Leave Applications ({myRequests.length})
@@ -262,13 +307,13 @@ export default function LeavesView() {
             onClick={() => setActiveTab("APPROVALS")}
             className={`pb-3 px-4 text-xs font-semibold border-b-2 transition flex items-center gap-2 ${
               activeTab === "APPROVALS"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <span>Team Approvals</span>
             {pendingApprovals.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
                 {pendingApprovals.length} Pending
               </span>
             )}
@@ -278,10 +323,10 @@ export default function LeavesView() {
 
       {/* Tab Content: My Leaves */}
       {activeTab === "MY_LEAVES" && (
-        <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
+        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-800 font-semibold">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200 font-semibold">
                 <tr>
                   <th className="py-3.5 px-4">Leave Type</th>
                   <th className="py-3.5 px-4">Duration</th>
@@ -291,7 +336,7 @@ export default function LeavesView() {
                   <th className="py-3.5 px-4">Review Note</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
                     <td colSpan={6} className="text-center py-10 text-slate-500">
@@ -306,33 +351,33 @@ export default function LeavesView() {
                   </tr>
                 ) : (
                   myRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-800/40 transition">
-                      <td className="py-3.5 px-4 font-semibold text-white">
+                    <tr key={req.id} className="hover:bg-slate-50 transition">
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">
                         {req.leaveType?.name || "Leave"}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-300">
+                      <td className="py-3.5 px-4 text-slate-600">
                         {formatDate(req.startDate)} to {formatDate(req.endDate)}
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-indigo-300">
+                      <td className="py-3.5 px-4 font-semibold text-indigo-600">
                         {req.totalDays} {req.isHalfDay ? "(Half Day)" : "day(s)"}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-400 max-w-xs truncate">
+                      <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">
                         {req.reason}
                       </td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                             req.status === "APPROVED"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : req.status === "REJECTED"
-                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
                         >
                           {req.status}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-400 italic">
+                      <td className="py-3.5 px-4 text-slate-500 italic">
                         {req.reviewNote || "-"}
                       </td>
                     </tr>
@@ -346,10 +391,10 @@ export default function LeavesView() {
 
       {/* Tab Content: Team Approvals */}
       {activeTab === "APPROVALS" && (
-        <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
+        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-800 font-semibold">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200 font-semibold">
                 <tr>
                   <th className="py-3.5 px-4">Employee</th>
                   <th className="py-3.5 px-4">Leave Type</th>
@@ -360,7 +405,7 @@ export default function LeavesView() {
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {teamRequests.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-12 text-slate-500">
@@ -369,35 +414,35 @@ export default function LeavesView() {
                   </tr>
                 ) : (
                   teamRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-800/40 transition">
+                    <tr key={req.id} className="hover:bg-slate-50 transition">
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-white">
+                        <div className="font-semibold text-slate-900">
                           {req.employee?.firstName} {req.employee?.lastName}
                         </div>
-                        <div className="text-[10px] text-slate-400">
+                        <div className="text-[10px] text-slate-500">
                           {req.employee?.department?.name || req.employee?.employeeCode}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-300">
+                      <td className="py-3.5 px-4 font-medium text-slate-700">
                         {req.leaveType?.name || "Leave"}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-300">
+                      <td className="py-3.5 px-4 text-slate-600">
                         {formatDate(req.startDate)} - {formatDate(req.endDate)}
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-indigo-300">
+                      <td className="py-3.5 px-4 font-bold text-indigo-600">
                         {req.totalDays}d
                       </td>
-                      <td className="py-3.5 px-4 text-slate-400 max-w-xs truncate">
+                      <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">
                         {req.reason}
                       </td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                             req.status === "APPROVED"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : req.status === "REJECTED"
-                              ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                              : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
                         >
                           {req.status}
@@ -412,7 +457,7 @@ export default function LeavesView() {
                                 setReviewAction("APPROVED");
                                 setReviewModalOpen(true);
                               }}
-                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 transition"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition"
                             >
                               Approve
                             </button>
@@ -422,13 +467,13 @@ export default function LeavesView() {
                                 setReviewAction("REJECTED");
                                 setReviewModalOpen(true);
                               }}
-                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 transition"
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition"
                             >
                               Reject
                             </button>
                           </div>
                         ) : (
-                          <span className="text-slate-500 text-[11px] italic">Reviewed</span>
+                          <span className="text-slate-400 text-[11px] italic">Reviewed</span>
                         )}
                       </td>
                     </tr>
@@ -442,20 +487,20 @@ export default function LeavesView() {
 
       {/* Apply Leave Modal */}
       {applyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl"
+            className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl text-slate-900"
           >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-indigo-400" />
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-indigo-600" />
                 Apply for Leave
               </h3>
               <button
                 onClick={() => setApplyModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </button>
@@ -463,13 +508,13 @@ export default function LeavesView() {
 
             <form onSubmit={handleApplySubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Select Leave Category <span className="text-rose-400">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Select Leave Category <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={selectedTypeId}
                   onChange={(e) => setSelectedTypeId(e.target.value)}
-                  className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900"
                   required
                 >
                   <option value="">Select a category...</option>
@@ -483,26 +528,26 @@ export default function LeavesView() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Start Date <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Start Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    End Date <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    End Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900"
                     required
                   />
                 </div>
@@ -514,39 +559,39 @@ export default function LeavesView() {
                   id="halfDay"
                   checked={isHalfDay}
                   onChange={(e) => setIsHalfDay(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
-                <label htmlFor="halfDay" className="text-xs text-slate-300 font-medium cursor-pointer">
+                <label htmlFor="halfDay" className="text-xs text-slate-700 font-medium cursor-pointer">
                   This is a Half-Day Leave (0.5 day)
                 </label>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Reason for Time-Off <span className="text-rose-400">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Reason for Time-Off <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   rows={3}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="e.g. Family function, medical appointment, urgent personal work..."
-                  className="w-full glass-input rounded-xl p-3 text-xs resize-none"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs resize-none text-slate-900 placeholder:text-slate-400"
                   required
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setApplyModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingApply}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center gap-2 shadow-sm"
                 >
                   {submittingApply && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Submit Application
@@ -559,14 +604,14 @@ export default function LeavesView() {
 
       {/* Review Modal */}
       {reviewModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl text-slate-900">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
               {reviewAction === "APPROVED" ? "Approve Leave Request" : "Reject Leave Request"}
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-slate-500 mb-4">
               Applicant:{" "}
-              <span className="font-semibold text-slate-200">
+              <span className="font-semibold text-slate-800">
                 {selectedRequest.employee?.firstName} {selectedRequest.employee?.lastName}
               </span>{" "}
               ({selectedRequest.totalDays} day(s))
@@ -574,7 +619,7 @@ export default function LeavesView() {
 
             <form onSubmit={handleReviewSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Reviewer Note / Feedback
                 </label>
                 <textarea
@@ -586,7 +631,7 @@ export default function LeavesView() {
                       ? "e.g. Approved. Please ensure handoff of active tasks."
                       : "e.g. Rejected due to critical project release deadline."
                   }
-                  className="w-full glass-input rounded-xl p-3 text-xs resize-none"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs resize-none text-slate-900 placeholder:text-slate-400"
                 />
               </div>
 
@@ -594,14 +639,14 @@ export default function LeavesView() {
                 <button
                   type="button"
                   onClick={() => setReviewModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingReview}
-                  className={`px-5 py-2 rounded-xl text-white font-semibold text-xs transition ${
+                  className={`px-5 py-2 rounded-xl text-white font-semibold text-xs transition shadow-sm ${
                     reviewAction === "APPROVED"
                       ? "bg-emerald-600 hover:bg-emerald-500"
                       : "bg-rose-600 hover:bg-rose-500"

@@ -267,19 +267,19 @@ export default function EmployeeDocumentsView({
             <span>Employees</span>
             <span>/</span>
             <span className="text-slate-300 font-semibold">{empDisplayName}</span>
-            <span className="text-indigo-400 font-mono">({empDisplayCode})</span>
+            <span className="text-indigo-600 font-mono">({empDisplayCode})</span>
             <span>/</span>
-            <span className="text-indigo-400 font-bold">Profile</span>
+            <span className="text-indigo-600 font-bold">Profile</span>
             <span>/</span>
-            <span className="text-white font-bold">Documents</span>
+            <span className="text-slate-900 font-bold">Documents</span>
           </div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
               <FileCheck2 className="w-5 h-5" />
             </span>
             Employee Compliance & Statutory Documents
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Aadhaar, PAN, Passports, Driving Licences, Education & Experience credentials with verification & expiry lifecycle
           </p>
         </div>
@@ -308,72 +308,72 @@ export default function EmployeeDocumentsView({
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Mandatory</p>
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Mandatory</p>
             <div className="flex items-baseline justify-between mt-1">
-              <p className="text-xl font-black text-white">
+              <p className="text-xl font-black text-slate-900">
                 {summary.uploadedMandatory} / {summary.totalMandatory}
               </p>
-              <span className="text-xs font-bold text-indigo-400">{summary.completionPercentage}%</span>
+              <span className="text-xs font-bold text-indigo-600">{summary.completionPercentage}%</span>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-indigo-500 to-sky-400 h-full rounded-full transition-all"
+                className="bg-gradient-to-r from-indigo-500 to-sky-500 h-full rounded-full transition-all"
                 style={{ width: `${summary.completionPercentage}%` }}
               />
             </div>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Verified</p>
-            <p className="text-xl font-black text-emerald-400 mt-1 flex items-center gap-1.5">
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Verified</p>
+            <p className="text-xl font-black text-emerald-600 mt-1 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" />
               {summary.verifiedCount}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">Approved by HR</p>
+            <p className="text-[10px] text-slate-400 mt-1">Approved by HR</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Pending Review</p>
-            <p className="text-xl font-black text-amber-400 mt-1 flex items-center gap-1.5">
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Pending Review</p>
+            <p className="text-xl font-black text-amber-600 mt-1 flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
               {summary.pendingCount}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">Awaiting action</p>
+            <p className="text-[10px] text-slate-400 mt-1">Awaiting action</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Rejected</p>
-            <p className="text-xl font-black text-rose-400 mt-1 flex items-center gap-1.5">
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Rejected</p>
+            <p className="text-xl font-black text-rose-600 mt-1 flex items-center gap-1.5">
               <XCircle className="w-4 h-4" />
               {summary.rejectedCount}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">Needs re-upload</p>
+            <p className="text-[10px] text-slate-400 mt-1">Needs re-upload</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Expiring &lt;30d</p>
-            <p className="text-xl font-black text-orange-400 mt-1 flex items-center gap-1.5">
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Expiring &lt;30d</p>
+            <p className="text-xl font-black text-orange-600 mt-1 flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4" />
               {summary.expiringSoonCount}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">Needs renewal</p>
+            <p className="text-[10px] text-slate-400 mt-1">Needs renewal</p>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 border border-slate-800 bg-[#090d16]/70">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Stored</p>
-            <p className="text-xl font-black text-slate-200 mt-1 flex items-center gap-1.5">
+          <div className="rounded-2xl p-4 border border-slate-200 bg-white shadow-xs">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Stored</p>
+            <p className="text-xl font-black text-slate-800 mt-1 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-slate-400" />
               {summary.totalDocuments}
             </p>
-            <p className="text-[10px] text-slate-500 mt-1">Across all slots</p>
+            <p className="text-[10px] text-slate-400 mt-1">Across all slots</p>
           </div>
         </div>
       )}
 
       {/* Filters & Search */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto w-full sm:w-auto">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-xs overflow-x-auto w-full sm:w-auto">
           {(
             [
               { key: "ALL", label: "All Slots (10)" },
@@ -387,10 +387,10 @@ export default function EmployeeDocumentsView({
             <button
               key={t.key}
               onClick={() => setFilter(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                 filter === t.key
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {t.label}
@@ -405,7 +405,7 @@ export default function EmployeeDocumentsView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search document slot..."
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
           />
         </div>
       </div>
@@ -413,12 +413,12 @@ export default function EmployeeDocumentsView({
       {/* Documents Grid */}
       {loading ? (
         <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-3" />
-          <p className="text-sm">Loading employee documents...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-3" />
+          <p className="text-sm font-medium">Loading employee documents...</p>
         </div>
       ) : filteredChecklist.length === 0 ? (
-        <div className="py-16 text-center text-slate-500 bg-slate-900/40 rounded-3xl border border-slate-800/80">
-          <FileText className="w-10 h-10 mx-auto mb-2 text-slate-600" />
+        <div className="py-16 text-center text-slate-500 bg-white rounded-3xl border border-slate-200 shadow-xs">
+          <FileText className="w-10 h-10 mx-auto mb-2 text-slate-400" />
           <p className="text-sm font-medium">No documents matching this filter</p>
         </div>
       ) : (
@@ -430,27 +430,27 @@ export default function EmployeeDocumentsView({
             return (
               <div
                 key={item.type}
-                className={`glass-card rounded-2xl p-5 border transition-all relative overflow-hidden ${
+                className={`rounded-2xl p-5 border transition-all relative overflow-hidden ${
                   item.isVerified
-                    ? "border-emerald-500/30 bg-emerald-950/10 hover:border-emerald-500/50"
+                    ? "border-emerald-200 bg-emerald-50/50 hover:border-emerald-300"
                     : doc?.status === "PENDING"
-                    ? "border-amber-500/30 bg-amber-950/10 hover:border-amber-500/50"
+                    ? "border-amber-200 bg-amber-50/50 hover:border-amber-300"
                     : doc?.status === "REJECTED"
-                    ? "border-rose-500/30 bg-rose-950/10 hover:border-rose-500/50"
+                    ? "border-rose-200 bg-rose-50/50 hover:border-rose-300"
                     : doc?.isExpired
-                    ? "border-rose-500/40 bg-rose-950/20"
-                    : "border-slate-800 bg-[#090d16]/70 hover:border-slate-700"
+                    ? "border-rose-300 bg-rose-50"
+                    : "border-slate-200 bg-white hover:border-slate-300"
                 }`}
               >
                 {/* Status indicator top bar */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 shadow-sm flex items-center justify-center">
+                    <span className="text-2xl p-2.5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs flex items-center justify-center">
                       {icon}
                     </span>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-white">{item.label}</h3>
+                        <h3 className="text-sm font-bold text-slate-900">{item.label}</h3>
                         {item.isMandatory ? (
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                             Mandatory
@@ -524,43 +524,43 @@ export default function EmployeeDocumentsView({
 
                 {/* Document Details if uploaded */}
                 {doc ? (
-                  <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-800/80 space-y-2 mb-4 text-xs">
+                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2 mb-4 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">File Name:</span>
-                      <span className="text-slate-200 font-mono font-medium truncate max-w-[200px]" title={doc.fileName}>
+                      <span className="text-slate-500">File Name:</span>
+                      <span className="text-slate-800 font-mono font-medium truncate max-w-[200px]" title={doc.fileName}>
                         {doc.fileName}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Uploaded:</span>
-                      <span className="text-slate-300">{formatDate(doc.createdAt)}</span>
+                      <span className="text-slate-500">Uploaded:</span>
+                      <span className="text-slate-700">{formatDate(doc.createdAt)}</span>
                     </div>
 
                     {doc.expiryDate && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Expiry Date:</span>
-                        <span className="text-slate-300 font-medium">{formatDate(doc.expiryDate)}</span>
+                        <span className="text-slate-500">Expiry Date:</span>
+                        <span className="text-slate-700 font-medium">{formatDate(doc.expiryDate)}</span>
                       </div>
                     )}
 
                     {doc.verifiedBy && (
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-400">Verified By:</span>
-                        <span className="text-emerald-400 font-medium">
+                        <span className="text-slate-500">Verified By:</span>
+                        <span className="text-emerald-700 font-medium">
                           {doc.verifiedBy} {doc.verifiedAt ? `(${formatDate(doc.verifiedAt)})` : ""}
                         </span>
                       </div>
                     )}
 
                     {doc.rejectionReason && (
-                      <div className="p-2 bg-rose-950/40 rounded-lg border border-rose-800/40 text-rose-300 text-[11px]">
+                      <div className="p-2 bg-rose-50 rounded-lg border border-rose-200 text-rose-700 text-[11px]">
                         <strong>Rejection Reason:</strong> {doc.rejectionReason}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="bg-slate-900/30 rounded-xl p-4 border border-dashed border-slate-800 text-center mb-4">
+                  <div className="bg-slate-50/50 rounded-xl p-4 border border-dashed border-slate-200 text-center mb-4">
                     <p className="text-xs text-slate-500">No document uploaded yet for this requirement.</p>
                   </div>
                 )}
@@ -652,25 +652,25 @@ export default function EmployeeDocumentsView({
 
       {/* ─── Upload / Replace Modal ──────────────────────────────────────────────── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200">
                   <Upload className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900">
                     {targetDocIdToReplace ? "Replace Document" : "Upload Document"}
                   </h3>
-                  <p className="text-xs text-slate-400">
-                    Slot: <strong className="text-indigo-300">{selectedType.replace(/_/g, " ")}</strong>
+                  <p className="text-xs text-slate-500">
+                    Slot: <strong className="text-indigo-600">{selectedType.replace(/_/g, " ")}</strong>
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setUploadModalOpen(false)}
-                className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white"
+                className="p-1.5 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -680,7 +680,7 @@ export default function EmployeeDocumentsView({
               {/* Dropzone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-700 hover:border-indigo-500/70 bg-slate-900/50 hover:bg-slate-900/80 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center"
+                className="border-2 border-dashed border-slate-200 hover:border-indigo-500/70 bg-slate-50 hover:bg-slate-100/70 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center"
               >
                 <input
                   type="file"
@@ -695,31 +695,31 @@ export default function EmployeeDocumentsView({
                       <img
                         src={filePreviewUrl}
                         alt="Preview"
-                        className="w-24 h-24 object-cover rounded-xl mx-auto border border-slate-700 shadow"
+                        className="w-24 h-24 object-cover rounded-xl mx-auto border border-slate-200 shadow-xs"
                       />
                     ) : (
-                      <FileText className="w-12 h-12 text-indigo-400 mx-auto" />
+                      <FileText className="w-12 h-12 text-indigo-600 mx-auto" />
                     )}
-                    <p className="text-xs font-bold text-white truncate max-w-[280px]">{selectedFile.name}</p>
-                    <p className="text-[11px] text-slate-400">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <span className="text-[10px] text-indigo-400 font-semibold underline">Click to choose a different file</span>
+                    <p className="text-xs font-bold text-slate-900 truncate max-w-[280px]">{selectedFile.name}</p>
+                    <p className="text-[11px] text-slate-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <span className="text-[10px] text-indigo-600 font-semibold underline">Click to choose a different file</span>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
                       <Upload className="w-6 h-6" />
                     </div>
-                    <p className="text-xs font-bold text-slate-200">
+                    <p className="text-xs font-bold text-slate-800">
                       Click to browse or drag and drop document
                     </p>
-                    <p className="text-[11px] text-slate-500">Supports PDF, PNG, JPG, JPEG (Max 15MB)</p>
+                    <p className="text-[11px] text-slate-400">Supports PDF, PNG, JPG, JPEG (Max 15MB)</p>
                   </div>
                 )}
               </div>
 
               {/* Document Title / Note */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Document Label / Note (Optional)
                 </label>
                 <input
@@ -727,39 +727,39 @@ export default function EmployeeDocumentsView({
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
                   placeholder="e.g. Aadhaar Front & Back / Degree marksheets"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               {/* Expiry Date */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
                   Document Expiry Date (If applicable)
                 </label>
                 <input
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-slate-400 mt-1">
                   Essential for Passport, Driving Licence, and temporary contract agreements.
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setUploadModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUploading || (!selectedFile && !targetDocIdToReplace)}
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-bold text-white shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs font-bold text-white shadow-md shadow-indigo-600/20 flex items-center gap-2 transition"
                 >
                   {isUploading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   {targetDocIdToReplace ? "Update Document" : "Upload File"}
@@ -772,22 +772,22 @@ export default function EmployeeDocumentsView({
 
       {/* ─── Preview Modal ──────────────────────────────────────────────────────── */}
       {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl max-h-[90vh] bg-[#090d16] border border-slate-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between p-4 px-6 border-b border-slate-800 bg-[#0f172a]">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] bg-white border border-slate-200 rounded-3xl overflow-hidden flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-4 px-6 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-indigo-400" />
+                <FileText className="w-5 h-5 text-indigo-600" />
                 <div>
-                  <h3 className="text-sm font-bold text-white truncate max-w-md">{previewDoc.fileName}</h3>
-                  <p className="text-[11px] text-slate-400">
+                  <h3 className="text-sm font-bold text-slate-900 truncate max-w-md">{previewDoc.fileName}</h3>
+                  <p className="text-[11px] text-slate-500">
                     {previewDoc.documentType.replace(/_/g, " ")} • Status:{" "}
                     <strong
                       className={
                         previewDoc.status === "VERIFIED"
-                          ? "text-emerald-400"
+                          ? "text-emerald-600"
                           : previewDoc.status === "REJECTED"
-                          ? "text-rose-400"
-                          : "text-amber-400"
+                          ? "text-rose-600"
+                          : "text-amber-600"
                       }
                     >
                       {previewDoc.status}
@@ -798,7 +798,7 @@ export default function EmployeeDocumentsView({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => downloadFile(previewDoc.fileUrl, previewDoc.fileName)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download
@@ -807,14 +807,14 @@ export default function EmployeeDocumentsView({
                   href={previewDoc.fileUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+                  className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition"
                   title="Open in new tab"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
                 <button
                   onClick={() => setPreviewDoc(null)}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition"
+                  className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-600 text-slate-500 transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -822,18 +822,18 @@ export default function EmployeeDocumentsView({
             </div>
 
             {/* Document Content View */}
-            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[400px]">
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-100 min-h-[400px]">
               {previewDoc.fileUrl.endsWith(".pdf") || previewDoc.mimeType === "application/pdf" ? (
                 <iframe
                   src={previewDoc.fileUrl}
-                  className="w-full h-[650px] rounded-xl border border-slate-800"
+                  className="w-full h-[650px] rounded-xl border border-slate-200"
                   title="PDF Preview"
                 />
               ) : (
                 <img
                   src={previewDoc.fileUrl}
                   alt={previewDoc.fileName}
-                  className="max-w-full max-h-[650px] object-contain rounded-xl shadow-lg"
+                  className="max-w-full max-h-[650px] object-contain rounded-xl shadow-md"
                 />
               )}
             </div>
@@ -843,20 +843,20 @@ export default function EmployeeDocumentsView({
 
       {/* ─── Reject Reason Modal ────────────────────────────────────────────────── */}
       {rejectModalDoc && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0f172a] border border-slate-800 rounded-3xl p-6 shadow-2xl">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
-              <span className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-200">
+              <span className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
                 <XCircle className="w-5 h-5" />
               </span>
               <div>
-                <h3 className="text-base font-bold text-white">Reject Document</h3>
-                <p className="text-xs text-slate-400">{rejectModalDoc.documentType.replace(/_/g, " ")}</p>
+                <h3 className="text-base font-bold text-slate-900">Reject Document</h3>
+                <p className="text-xs text-slate-500">{rejectModalDoc.documentType.replace(/_/g, " ")}</p>
               </div>
             </div>
 
             <div className="mt-4 space-y-3">
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-600">
                 Provide a reason explaining why this document was rejected so the employee can upload an updated copy.
               </p>
               <textarea
@@ -864,15 +864,15 @@ export default function EmployeeDocumentsView({
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="e.g. Document copy is blurred / Missing government seal / Expired identity card"
                 rows={3}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-rose-500"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800 mt-4">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
               <button
                 type="button"
                 onClick={() => setRejectModalDoc(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+                className="px-4 py-2 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
               >
                 Cancel
               </button>
@@ -880,7 +880,7 @@ export default function EmployeeDocumentsView({
                 type="button"
                 onClick={() => handleVerify(rejectModalDoc.id, "REJECTED", rejectionReason)}
                 disabled={isVerifying}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow-lg shadow-rose-600/25 flex items-center gap-1.5 transition"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition"
               >
                 {isVerifying && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Confirm Rejection

@@ -14,12 +14,16 @@ const STORE_NAME = "pending_punches";
 
 export interface OfflinePunch {
   id: string;          // UUID generated on device (used to clear after sync)
+  ownerId: string;     // Authenticated user that created the event
   type: "CHECK_IN" | "CHECK_OUT" | "BREAK_START" | "BREAK_END" | "WFH_CHECK_IN";
   timestamp: string;   // ISO 8601 — EXACT time the user tapped the button
   latitude?: number;
   longitude?: number;
   accuracy?: number;
   wfhNote?: string;
+  workMode?: string;
+  note?: string;
+  deviceId?: string;
   enqueuedAt: string;  // ISO — when it was saved to IndexedDB (for display)
 }
 
@@ -77,12 +81,12 @@ export async function enqueuePunch(
 
 // ─── Retrieve all pending (unsynced) punches ──────────────────────────────────
 
-export async function getAllPendingPunches(): Promise<OfflinePunch[]> {
+export async function getAllPendingPunches(ownerId: string): Promise<OfflinePunch[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const req = tx.objectStore(STORE_NAME).index("timestamp").getAll();
-    req.onsuccess = () => resolve(req.result as OfflinePunch[]);
+    req.onsuccess = () => resolve((req.result as OfflinePunch[]).filter((entry) => entry.ownerId === ownerId));
     req.onerror = () => reject(req.error);
   });
 }
@@ -107,13 +111,16 @@ export async function removePunches(ids: string[]): Promise<void> {
 
 // ─── Count how many punches are waiting to be synced ─────────────────────────
 
-export async function getPendingCount(): Promise<number> {
+export async function getPendingCount(ownerId?: string): Promise<number> {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readonly");
-      const req = tx.objectStore(STORE_NAME).count();
-      req.onsuccess = () => resolve(req.result);
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => {
+        const entries = req.result as OfflinePunch[];
+        resolve(ownerId ? entries.filter((entry) => entry.ownerId === ownerId).length : entries.length);
+      };
       req.onerror = () => reject(req.error);
     });
   } catch {

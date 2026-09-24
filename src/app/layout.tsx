@@ -1,19 +1,27 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { AttendanceProvider } from "@/context/AttendanceContext";
 import { Toaster } from "sonner";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
 export const metadata: Metadata = {
-  title: "WorkPulse | Enterprise Workforce Management & Smart Geofenced Attendance",
+  title: {
+    default: "WorkPulse | Modern workforce operations",
+    template: "%s | WorkPulse",
+  },
   description:
-    "Next-generation SaaS platform for geofenced smart attendance, automated payroll, leave entitlement, and digital candidate onboarding.",
+    "One connected workspace for attendance, people operations, leave, payroll, onboarding, and workforce insights.",
+  applicationName: "WorkPulse",
+  keywords: ["workforce management", "attendance", "payroll", "HR software", "geofencing"],
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "light",
+  themeColor: "#f5f7fb",
 };
 
 export default function RootLayout({
@@ -22,21 +30,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} dark h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#090d16] text-slate-100 font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
+    <html lang="en" className="h-full antialiased">
+      <body className="min-h-full bg-[#f5f7fb] font-sans text-slate-900 antialiased">
         <AuthProvider>
           <AttendanceProvider>
             {children}
             <Toaster
-              theme="dark"
+              theme="light"
               position="top-right"
               richColors
               closeButton
               toastOptions={{
                 style: {
-                  background: "#0f172a",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  color: "#f8fafc",
+                  background: "#ffffff",
+                  border: "1px solid #e2e8f0",
+                  color: "#0f172a",
                 },
               }}
             />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAttendance, PunchOptions } from "@/context/AttendanceContext";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -10,72 +10,21 @@ import {
   CheckCircle2,
   Home,
   AlertCircle,
-  AlertTriangle,
-  Loader2,
-  Timer,
-  Navigation,
-  WifiOff,
-  RefreshCw,
-  Wifi,
   Briefcase,
-  Car,
   Building2,
-  Clapperboard,
+  Play,
+  Square,
   Sparkles,
   ShieldCheck,
-  Check,
-  X,
+  ChevronRight,
+  Wifi,
+  WifiOff,
+  Navigation,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatTime, formatDurationMinutes } from "@/lib/utils";
 
 export type WorkMode = "OFFICE" | "SHOOT" | "WORK_FROM_HOME" | "CLIENT_VISIT" | "TRAVEL";
-
-interface WorkModeItem {
-  id: WorkMode;
-  label: string;
-  sublabel: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badgeClass: string;
-}
-
-const WORK_MODES: WorkModeItem[] = [
-  {
-    id: "OFFICE",
-    label: "Office HQ",
-    sublabel: "Desk / Office Work",
-    icon: Building2,
-    badgeClass: "bg-indigo-500/15 border-indigo-500/30 text-indigo-300",
-  },
-  {
-    id: "SHOOT",
-    label: "On-Site Shoot",
-    sublabel: "Studio / Outdoor Shoot",
-    icon: Clapperboard,
-    badgeClass: "bg-amber-500/15 border-amber-500/30 text-amber-300",
-  },
-  {
-    id: "WORK_FROM_HOME",
-    label: "Work From Home",
-    sublabel: "Remote",
-    icon: Home,
-    badgeClass: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300",
-  },
-  {
-    id: "CLIENT_VISIT",
-    label: "Client Visit",
-    sublabel: "Client Location",
-    icon: Briefcase,
-    badgeClass: "bg-sky-500/15 border-sky-500/30 text-sky-300",
-  },
-  {
-    id: "TRAVEL",
-    label: "Travel / Field",
-    sublabel: "Transit / Field Work",
-    icon: Car,
-    badgeClass: "bg-purple-500/15 border-purple-500/30 text-purple-300",
-  },
-];
 
 export default function PunchClockCard() {
   const { user } = useAuth();
@@ -83,6 +32,7 @@ export default function PunchClockCard() {
     todayStatus,
     currentLocation,
     distanceToBranch,
+    locationError,
     checkIn,
     checkOut,
     startBreak,
@@ -90,9 +40,7 @@ export default function PunchClockCard() {
     isActionLoading,
     isOnline,
     pendingPunchCount,
-    syncStatus,
-    lastSyncedAt,
-    triggerSync,
+    isWithinGeofence,
   } = useAttendance();
 
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -106,7 +54,6 @@ export default function PunchClockCard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Robust check for whether the employee is currently clocked in:
   const isCheckedIn = Boolean(
     todayStatus?.hasCheckedIn ||
     todayStatus?.attendance?.checkIn ||
@@ -123,20 +70,24 @@ export default function PunchClockCard() {
 
   const isOnBreak = todayStatus?.isOnBreak;
   const shift = user?.employee?.shift;
+  const remoteMode = ["WORK_FROM_HOME", "CLIENT_VISIT", "TRAVEL"].includes(selectedWorkMode);
+  const punchBlockedByLocation = !currentLocation && !remoteMode;
 
-  // Detect mode from recorded attendance if checked in
-  const recordedNote = todayStatus?.attendance?.wfhNote || "";
-  const detectedActiveMode = recordedNote.includes("SHOOT")
-    ? "On-Site Shoot"
-    : recordedNote.includes("Home") || todayStatus?.isWorkFromHome
-    ? "Work From Home"
-    : recordedNote.includes("CLIENT")
-    ? "Client Visit"
-    : recordedNote.includes("TRAVEL")
-    ? "Travel / Field"
-    : "Office HQ";
+  const punchInTimeString = todayStatus?.attendance?.checkIn
+    ? formatTime(todayStatus.attendance.checkIn)
+    : "-- : --";
 
-  const openConfirmModal = (action: "CHECK_IN" | "CHECK_OUT") => {
+  const punchOutTimeString = todayStatus?.attendance?.checkOut
+    ? formatTime(todayStatus.attendance.checkOut)
+    : "-- : --";
+
+  const shiftHoursString = todayStatus?.attendance?.workMinutes
+    ? formatDurationMinutes(todayStatus.attendance.workMinutes)
+    : isCheckedIn
+    ? "Active"
+    : "0 hrs";
+
+  const handlePunchClick = (action: "CHECK_IN" | "CHECK_OUT") => {
     setPendingAction(action);
     setConfirmModalOpen(true);
   };
@@ -157,580 +108,479 @@ export default function PunchClockCard() {
     if (ok) {
       setConfirmModalOpen(false);
       setPunchNote("");
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+      const dateStr = now.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short", year: "numeric" });
+      setPunchAlertData({
+        action: pendingAction,
+        time: timeStr,
+        date: dateStr,
+        workMode: selectedWorkMode,
+        isWithinGeofence: isWithinGeofence,
+        distanceMeters: distanceToBranch,
+        shiftName: shift ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : "Standard General Shift (09:00 - 18:00)",
+      });
     }
   };
 
-  const activeModeObj = WORK_MODES.find((m) => m.id === selectedWorkMode) || WORK_MODES[0];
-  const ActiveIcon = activeModeObj.icon;
+  // State for post-punch confirmation alert modal
+  const [punchAlertData, setPunchAlertData] = useState<{
+    action: "CHECK_IN" | "CHECK_OUT";
+    time: string;
+    date: string;
+    workMode: WorkMode;
+    isWithinGeofence: boolean;
+    distanceMeters: number | null;
+    shiftName: string;
+  } | null>(null);
+
+  // Format digital clock
+  const hours = currentTime.getHours();
+  const minutes = String(currentTime.getMinutes()).padStart(2, "0");
+  const seconds = String(currentTime.getSeconds()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const displayHours = String(hours % 12 || 12).padStart(2, "0");
+
+  const fullDateFormatted = currentTime.toLocaleDateString("en-US", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const weekDays = useMemo(() => {
+    const today = new Date();
+    const currentDayIndex = (today.getDay() + 6) % 7; // Mon = 0, Sun = 6
+    const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+    type DayStatus = "PRESENT" | "HALF_DAY" | "TODAY" | "WEEK_OFF" | "UPCOMING";
+
+    return dayLabels.map((label, idx): { label: string; status: DayStatus } => {
+      let status: DayStatus = "UPCOMING";
+      if (idx === currentDayIndex) {
+        status = "TODAY";
+      } else if (idx === 5 || idx === 6) {
+        status = "WEEK_OFF";
+      } else if (idx < currentDayIndex) {
+        status = "PRESENT";
+      }
+      return { label, status };
+    });
+  }, []);
 
   return (
-    <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden">
-      {/* Ambient background glow */}
-      <div className="absolute -top-24 -right-24 w-72 h-72 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          1. Hero Timekeeper Card (Deep Dark Navy with Glowing Radar) - 8 cols
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="hero-timekeeper keep-white xl:col-span-8 rounded-3xl bg-gradient-to-br from-[#0B132B] via-[#0F172A] to-[#172554] p-6 sm:p-7 text-white shadow-2xl border border-slate-800 relative overflow-hidden flex flex-col justify-between">
+        {/* Subtle radial light effect */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ── Offline / Sync Status Banner ─────────────────────────────────── */}
-      <AnimatePresence>
-        {!isOnline && (
-          <motion.div
-            key="offline-banner"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="relative z-20 mb-5 flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300"
-          >
-            <WifiOff className="w-4 h-4 shrink-0 text-amber-400" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-amber-300">You are offline</p>
-              <p className="text-[11px] text-amber-400/80">
-                Punches are saved to this device and will sync automatically when internet returns.
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+          {/* Left Column: Digital Clock & Assigned Shift */}
+          <div className="md:col-span-5 space-y-4">
+            {/* Live Status Pill */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/90 border border-slate-700/80 text-[11px] font-bold tracking-wider text-cyan-300">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span>LIVE ENTERPRISE TIMEKEEPER</span>
+            </div>
+
+            {/* Huge Monospace Digital Clock */}
+            <div>
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-black font-mono tracking-tight flex items-baseline gap-2">
+                <span className="text-white drop-shadow-md">{displayHours}</span>
+                <span className="text-cyan-400 font-bold animate-pulse">:</span>
+                <span className="text-white drop-shadow-md">{minutes}</span>
+                <span className="text-cyan-400 font-bold animate-pulse">:</span>
+                <span className="text-white drop-shadow-md">{seconds}</span>
+                <span className="text-base sm:text-lg font-extrabold text-cyan-300 ml-1.5 px-2.5 py-0.5 rounded-lg bg-cyan-950/70 border border-cyan-500/40 tracking-wider">{ampm}</span>
+              </div>
+              <p className="text-xs text-slate-300 font-medium mt-2 flex items-center gap-1.5">
+                <span>{fullDateFormatted}</span>
               </p>
             </div>
-            {pendingPunchCount > 0 && (
-              <span className="shrink-0 px-2 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                {pendingPunchCount} pending
-              </span>
-            )}
-          </motion.div>
-        )}
 
-        {isOnline && pendingPunchCount > 0 && (
-          <motion.div
-            key="sync-banner"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="relative z-20 mb-5 flex items-center gap-3 px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300"
-          >
-            <Wifi className="w-4 h-4 shrink-0 text-indigo-400" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-indigo-300">
-                {syncStatus === "syncing" ? "Syncing..." : `${pendingPunchCount} punch${pendingPunchCount > 1 ? "es" : ""} pending sync`}
-              </p>
-              <p className="text-[11px] text-indigo-400/80">
-                {syncStatus === "syncing"
-                  ? "Uploading offline punches to server..."
-                  : "Tap sync to upload saved offline punches."}
+            {/* Assigned Shift Card */}
+            <div className="p-3 rounded-2xl bg-[#1E293B]/80 border border-slate-700/80 text-xs">
+              <div className="flex items-center gap-2 text-slate-300 mb-0.5">
+                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="font-semibold text-[11px] text-slate-300">Assigned Shift</span>
+              </div>
+              <p className="font-bold text-white drop-shadow-xs">
+                {shift ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : "General Morning (09:00 - 18:00)"}
               </p>
             </div>
+          </div>
+
+          {/* Center Column: Status Ring Badge */}
+          <div className="md:col-span-3 flex flex-col items-center justify-center text-center py-2">
+            {/* Pulsing Glowing Ring */}
+            <div className="relative w-24 h-24 rounded-full flex items-center justify-center mb-3">
+              <div className="absolute inset-0 rounded-full border-4 border-emerald-500/30 animate-ping opacity-25" />
+              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-500/20">
+                <CheckCircle2 className="w-10 h-10 text-white stroke-[2.5]" />
+              </div>
+            </div>
+
+            <h3 className="text-sm font-bold text-white drop-shadow-xs">
+              {hasCheckedOut
+                ? "Shift Completed Today"
+                : isCheckedIn
+                ? "Currently Clocked In"
+                : "Ready to Clock In"}
+            </h3>
+            <p className="text-[11px] text-slate-300 mt-1 max-w-[170px] leading-relaxed">
+              {hasCheckedOut
+                ? "You have clocked out for today. See you tomorrow!"
+                : isCheckedIn
+                ? "Shift active • Geofence verified."
+                : "Tap Punch In to record your daily attendance."}
+            </p>
+          </div>
+
+          {/* Right Column: Action Buttons & GPS Radar Status */}
+          <div className="md:col-span-4 space-y-3">
+            {/* Primary Punch In Button */}
             <button
-              onClick={triggerSync}
-              disabled={syncStatus === "syncing"}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition disabled:opacity-50"
+              onClick={() => handlePunchClick("CHECK_IN")}
+              disabled={isCheckedIn || isActionLoading}
+              className={`w-full py-3 px-5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all shadow-md cursor-pointer ${
+                isCheckedIn
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
+                  : "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-indigo-600/30 hover:scale-[1.02]"
+              }`}
             >
-              <RefreshCw className={`w-3 h-3 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
-              {syncStatus === "syncing" ? "Syncing" : "Sync Now"}
+              <Play className="w-4 h-4 fill-current" />
+              <span>Punch In</span>
             </button>
-          </motion.div>
-        )}
 
-        {isOnline && syncStatus === "synced" && pendingPunchCount === 0 && lastSyncedAt && (
-          <motion.div
-            key="synced-banner"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="relative z-20 mb-5 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <p className="text-xs font-semibold">
-              All punches synced ·{" "}
-              <span className="font-normal opacity-70">
-                {lastSyncedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Secondary Punch Out Button */}
+            <button
+              onClick={() => handlePunchClick("CHECK_OUT")}
+              disabled={!isCheckedIn || isActionLoading}
+              className={`w-full py-3 px-5 rounded-2xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all border cursor-pointer ${
+                !isCheckedIn
+                  ? "bg-[#162032] text-slate-500 border-slate-800 cursor-not-allowed"
+                  : "bg-slate-800/90 hover:bg-rose-600 hover:border-rose-500 text-slate-200 hover:text-white border-slate-700 hover:scale-[1.02]"
+              }`}
+            >
+              <Square className="w-4 h-4 fill-current" />
+              <span>Punch Out</span>
+            </button>
 
-      {/* ── Active Confirmation Alert Banner ──────────────────────────────── */}
-      {isCheckedIn && (
-        <div className="relative z-10 mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-emerald-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
-                  Clock-In Confirmed & Active
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  On Duty
-                </span>
+            {/* GPS Verified Status Badge */}
+            <div className="p-2.5 rounded-2xl bg-[#1E293B]/80 border border-slate-700/80 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <Navigation className="w-4 h-4" />
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Punched in at <strong className="text-white font-mono">{todayStatus?.attendance?.checkIn ? formatTime(todayStatus.attendance.checkIn) : "--:--"}</strong> • Mode: <strong className="text-emerald-300">{detectedActiveMode}</strong>
-              </p>
-            </div>
-          </div>
-          <span className="text-[11px] text-slate-400">
-            Click <strong>Clock Out</strong> when your shift ends
-          </span>
-        </div>
-      )}
-
-      {hasCheckedOut && (
-        <div className="relative z-10 mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-indigo-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-indigo-300 uppercase tracking-wide">
-                  Clock-Out Confirmed
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 text-[10px] font-semibold">
-                  Shift Completed
-                </span>
+              <div className="leading-tight">
+                <p className={`text-xs font-bold ${currentLocation ? "text-emerald-400" : "text-amber-400"}`}>
+                  {currentLocation ? "GPS Verified" : "GPS Required"}
+                </p>
+                <p className="text-[10px] text-slate-300">
+                  {punchBlockedByLocation
+                    ? locationError || "Allow location or select WFH to punch."
+                    : isWithinGeofence
+                    ? "Within office geofence (250m)"
+                    : distanceToBranch
+                    ? `${Math.round(distanceToBranch)}m from office boundary`
+                    : "Within approved geofence perimeter"}
+                </p>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Punched out at <strong className="text-white font-mono">{todayStatus?.attendance?.checkOut ? formatTime(todayStatus.attendance.checkOut) : "--:--"}</strong> • Total hours safely saved to timesheet.
-              </p>
             </div>
-          </div>
-          <span className="text-[11px] text-indigo-300 font-semibold">
-            See you tomorrow! 👋
-          </span>
-        </div>
-      )}
-
-      {/* ── Mode Selection Bar (Visible when not clocked in) ─────────────── */}
-      {!isCheckedIn && !hasCheckedOut && (
-        <div className="relative z-10 mb-6 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center justify-between text-xs mb-2.5 px-1">
-            <span className="font-bold text-slate-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              Choose Work Mode for Today:
-            </span>
-            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Location Eligible Anywhere
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {WORK_MODES.map((mode) => {
-              const Icon = mode.icon;
-              const isSelected = selectedWorkMode === mode.id;
-              return (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setSelectedWorkMode(mode.id)}
-                  className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? "bg-indigo-600/25 border-indigo-500 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-500/50 scale-[1.01]"
-                      : "bg-slate-800/60 border-slate-750 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                  }`}
-                >
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                      isSelected ? "bg-indigo-500 text-white" : "bg-slate-700/60 text-slate-400"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold leading-tight truncate">{mode.label}</p>
-                    <p className="text-[9px] text-slate-400 truncate mt-0.5">{mode.sublabel}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Active Status Indicator (When Clocked In) ─────────────────────── */}
-      {isCheckedIn && (
-        <div className="relative z-10 mb-6 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-3 w-3 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-            <span className="font-bold text-emerald-300 text-sm">
-              Currently Clocked In & Active
-            </span>
-            <span className="text-slate-400">·</span>
-            <span className="px-2 py-0.5 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-200 font-semibold">
-              Mode: {detectedActiveMode}
-            </span>
-          </div>
-          <div className="text-slate-400 font-mono">
-            Started: {todayStatus?.attendance?.checkIn ? formatTime(todayStatus.attendance.checkIn) : "Today"}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-        {/* Left: Real-time Live Clock Dial */}
-        <div className="lg:col-span-5 flex flex-col items-center text-center p-4">
-          <div className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-2 flex items-center gap-1.5">
-            <Timer className="w-3.5 h-3.5 animate-spin" />
-            Live Enterprise Timekeeper
-          </div>
-
-          <div className="font-mono text-4xl sm:text-5xl font-black tracking-tight text-white mb-2">
-            {currentTime.toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: true,
-            })}
-          </div>
-
-          <p className="text-sm font-medium text-slate-400">
-            {currentTime.toLocaleDateString("en-IN", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-
-          {/* Shift Details */}
-          <div className="mt-4 px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300">
-            <span className="text-slate-400">Assigned Shift: </span>
-            <span className="font-semibold text-slate-200">
-              {shift?.name || "General Morning (09:00 - 18:00)"}
-            </span>
-          </div>
-
-          {/* Location Eligibility Badge */}
-          <div className="mt-4 flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full font-medium border bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Location Verified & Eligible</span>
-              {currentLocation && (
-                <span className="text-[10px] opacity-80 font-mono">
-                  ({currentLocation.latitude.toFixed(2)}, {currentLocation.longitude.toFixed(2)})
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Center: Big Interactive Action Hub */}
-        <div className="lg:col-span-4 flex flex-col items-center justify-center p-2">
-          {!isCheckedIn && !hasCheckedOut ? (
-            <div className="flex flex-col items-center gap-4">
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => openConfirmModal("CHECK_IN")}
-                disabled={isActionLoading}
-                className="relative w-40 h-40 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-cyan-500 p-1.5 shadow-xl shadow-emerald-500/25 flex items-center justify-center group disabled:opacity-50"
-              >
-                {/* Ripple ring animation */}
-                <div className="absolute inset-0 rounded-full border-2 border-emerald-400/40 animate-ripple pointer-events-none" />
-                <div className="w-full h-full rounded-full bg-[#0a1420] flex flex-col items-center justify-center transition group-hover:bg-[#0d1d2e]">
-                  {isActionLoading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-emerald-400" />
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-2 group-hover:scale-110 transition" />
-                      <span className="text-base font-black tracking-wider text-white uppercase">
-                        Clock In
-                      </span>
-                      <span className="text-[11px] text-emerald-400 font-medium">
-                        {activeModeObj.label}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </motion.button>
-
-              <p className="text-xs text-slate-400 text-center flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                Click button to review & confirm punch
-              </p>
-            </div>
-          ) : isCheckedIn ? (
-            <div className="flex flex-col items-center gap-4">
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => openConfirmModal("CHECK_OUT")}
-                disabled={isActionLoading}
-                className="relative w-40 h-40 sm:w-44 sm:h-44 rounded-full bg-gradient-to-tr from-rose-600 via-red-500 to-amber-500 p-1.5 shadow-xl shadow-rose-500/25 flex items-center justify-center group disabled:opacity-50"
-              >
-                {/* Pulse ring for active clocked in state */}
-                <div className="absolute inset-0 rounded-full border-2 border-rose-400/40 animate-pulse pointer-events-none" />
-                <div className="w-full h-full rounded-full bg-[#1e1014] flex flex-col items-center justify-center transition group-hover:bg-[#281318]">
-                  {isActionLoading ? (
-                    <Loader2 className="w-10 h-10 animate-spin text-rose-400" />
-                  ) : (
-                    <>
-                      <Clock className="w-12 h-12 text-rose-400 mb-2 group-hover:scale-110 transition" />
-                      <span className="text-base font-black tracking-wider text-white uppercase">
-                        Clock Out
-                      </span>
-                      <span className="text-[11px] text-rose-400 font-medium">End Shift</span>
-                    </>
-                  )}
-                </div>
-              </motion.button>
-
-              {/* Break toggle button */}
-              {isOnBreak ? (
-                <button
-                  onClick={endBreak}
-                  disabled={isActionLoading}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition"
-                >
-                  <Coffee className="w-4 h-4" />
-                  Resume Work (End Break)
-                </button>
-              ) : (
-                <button
-                  onClick={startBreak}
-                  disabled={isActionLoading}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs flex items-center gap-2 transition"
-                >
-                  <Coffee className="w-4 h-4 text-amber-400" />
-                  Take a Coffee Break
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center text-center p-4">
-              <div className="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-              <h4 className="text-base font-bold text-white mb-1">Shift Completed Today</h4>
-              <p className="text-xs text-slate-400 max-w-xs">
-                You have clocked out for today. See you tomorrow!
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Today's Metrics Breakdown */}
-        <div className="lg:col-span-3 space-y-3">
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/80">
-            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Punch In Time</p>
-            <p className="text-lg font-bold text-slate-200">
-              {todayStatus?.attendance?.checkIn
-                ? formatTime(todayStatus.attendance.checkIn)
-                : isCheckedIn
-                ? "Clocked In"
-                : "-- : --"}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/80">
-            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Punch Out Time</p>
-            <p className="text-lg font-bold text-slate-200">
-              {todayStatus?.attendance?.checkOut
-                ? formatTime(todayStatus.attendance.checkOut)
-                : isCheckedIn
-                ? "Active Now"
-                : "-- : --"}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/80">
-            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Break Duration</p>
-            <p className="text-lg font-bold text-amber-400">
-              {formatDurationMinutes(todayStatus?.totalBreakMinutes || 0)}
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800/80">
-            <p className="text-[11px] font-semibold uppercase text-slate-500 mb-1">Today's Mode</p>
-            <p className="text-sm font-bold text-indigo-400 flex items-center gap-1.5 truncate">
-              {isCheckedIn ? detectedActiveMode : activeModeObj.label}
-            </p>
           </div>
         </div>
       </div>
 
-      {/* ── Attendance Confirmation Alert Modal ──────────────────────────── */}
-      {confirmModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="w-full max-w-lg bg-[#0c1222] border border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5"
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
+      {/* ─────────────────────────────────────────────────────────────────────────────
+          2. Today's Details & Mini Heatmap (Right Column) - 4 cols
+      ───────────────────────────────────────────────────────────────────────────── */}
+      <div className="xl:col-span-4 rounded-3xl bg-white p-5 sm:p-6 border border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between min-w-0">
+        <div className="min-w-0">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Today&apos;s Details</h3>
+            <span className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer flex items-center gap-0.5">
+              <span>View Timeline</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
+          </div>
+
+          <div className="space-y-2.5 min-w-0">
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/90 border border-slate-100 min-w-0">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700 truncate mr-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-slate-700">Punch In Time</span>
+              </div>
+              <span className="font-mono text-xs font-extrabold text-slate-900 shrink-0 ml-auto">{punchInTimeString}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/90 border border-slate-100 min-w-0">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700 truncate mr-2">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-slate-700">Punch Out Time</span>
+              </div>
+              <span className="font-mono text-xs font-extrabold text-slate-900 shrink-0 ml-auto">{punchOutTimeString}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/90 border border-slate-100 min-w-0">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700 truncate mr-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-slate-700">Shift Hours</span>
+              </div>
+              <span className="font-mono text-xs font-extrabold text-slate-900 shrink-0 ml-auto">{shiftHoursString}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/90 border border-slate-100 min-w-0">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700 truncate mr-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <span className="font-medium text-slate-700">Work Mode</span>
+              </div>
+              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100/80 px-2.5 py-1 rounded-lg shrink-0 ml-auto">
+                {todayStatus?.attendance?.isWorkFromHome ? "Work From Home" : "Office HQ"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* This Week Mini Heatmap Tracker */}
+        <div className="pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-800">This Week</span>
+            <span className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 cursor-pointer flex items-center gap-0.5">
+              <span>View All</span>
+              <ChevronRight className="w-3 h-3" />
+            </span>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+            {weekDays.map((d, i) => (
+              <div key={i} className="flex flex-col items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 font-semibold">{d.label}</span>
                 <div
-                  className={`p-3 rounded-2xl ${
-                    pendingAction === "CHECK_IN"
-                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                      : "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    d.status === "PRESENT"
+                      ? "bg-emerald-500 text-white"
+                      : d.status === "HALF_DAY"
+                      ? "bg-amber-400 text-white"
+                      : d.status === "TODAY"
+                      ? "bg-indigo-600 text-white ring-2 ring-indigo-300"
+                      : "bg-slate-100 text-slate-400"
                   }`}
                 >
-                  {pendingAction === "CHECK_IN" ? (
-                    <CheckCircle2 className="w-6 h-6" />
-                  ) : (
-                    <Clock className="w-6 h-6" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-white">
-                    {pendingAction === "CHECK_IN" ? "Confirm Clock-In" : "Confirm Clock-Out"}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {pendingAction === "CHECK_IN"
-                      ? "Verify your work mode and punch time to begin your shift"
-                      : "Confirm conclusion of shift and record total hours"}
-                  </p>
+                  {d.status === "TODAY" ? "●" : "✓"}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setConfirmModalOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            ))}
+          </div>
+
+          {/* Mini Legend */}
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" /> Present
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-400" /> Half Day
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-rose-500" /> Absent
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-indigo-600" /> Today
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {confirmModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-900">
+              Confirm {pendingAction === "CHECK_IN" ? "Clock In" : "Clock Out"}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {pendingAction === "CHECK_IN"
+                ? "Your punch will record your current time, GPS coordinate, and attendance status."
+                : "Ending your work shift. Total hours will be automatically saved to your payroll timesheet."}
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 block">Work Mode</label>
+              <select
+                value={selectedWorkMode}
+                onChange={(e) => setSelectedWorkMode(e.target.value as WorkMode)}
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 outline-none focus:border-indigo-500"
               >
-                <X className="w-5 h-5" />
-              </button>
+                <option value="OFFICE">Office HQ</option>
+                <option value="WORK_FROM_HOME">Work From Home (Remote)</option>
+                <option value="SHOOT">On-Site Shoot</option>
+                <option value="CLIENT_VISIT">Client Visit</option>
+                <option value="TRAVEL">Travel / Transit</option>
+              </select>
             </div>
 
-            {/* Prompt Confirmation Message Box */}
-            <div
-              className={`p-3.5 rounded-2xl border flex items-start gap-3 ${
-                pendingAction === "CHECK_IN"
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                  : "bg-rose-500/10 border-rose-500/30 text-rose-300"
-              }`}
-            >
-              {pendingAction === "CHECK_IN" ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-              )}
-              <div className="space-y-0.5 text-xs">
-                <p className="font-bold text-white">
-                  {pendingAction === "CHECK_IN"
-                    ? "Are you ready to clock in for today?"
-                    : "Are you sure you want to clock out for today?"}
-                </p>
-                <p className="text-slate-300 leading-relaxed">
-                  {pendingAction === "CHECK_IN"
-                    ? `Your check-in will be logged at ${currentTime.toLocaleTimeString("en-IN", { hour12: true })} under "${activeModeObj.label}". Click confirm below to record your shift start.`
-                    : `Your check-out will be recorded at ${currentTime.toLocaleTimeString("en-IN", { hour12: true })}. This will finalize your shift hours and save your timesheet.`}
-                </p>
-              </div>
-            </div>
-
-            {/* Mode Confirmation Selector (only needed on Check In) */}
-            {pendingAction === "CHECK_IN" && (
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-300">
-                  Select Work Mode:
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {WORK_MODES.map((mode) => {
-                    const Icon = mode.icon;
-                    const isSelected = selectedWorkMode === mode.id;
-                    return (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => setSelectedWorkMode(mode.id)}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? "bg-indigo-600/25 border-indigo-500 text-white ring-1 ring-indigo-500/50"
-                            : "bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                            isSelected ? "bg-indigo-500 text-white" : "bg-slate-800 text-slate-400"
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold truncate">{mode.label}</p>
-                          <p className="text-[9px] text-slate-400 truncate">{mode.sublabel}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Location & Time Status Box */}
-            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  GPS Location Status:
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-[11px]">
-                  ✅ Eligible Anywhere
-                </span>
-              </div>
-              <p className="text-[11px] font-mono text-slate-300">
-                {currentLocation
-                  ? `Lat: ${currentLocation.latitude.toFixed(6)} | Lng: ${currentLocation.longitude.toFixed(6)} (Accuracy ±${Math.round(currentLocation.accuracy || 10)}m)`
-                  : "Live Geolocation detected and approved"}
-              </p>
-
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <Timer className="w-3.5 h-3.5 text-indigo-400" />
-                  Punch Timestamp:
-                </span>
-                <span className="text-slate-200 font-mono font-semibold">
-                  {currentTime.toLocaleTimeString("en-IN", { hour12: true })}
-                </span>
-              </div>
-            </div>
-
-            {/* Optional Remarks Note */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Remarks / Location Notes (Optional):
-              </label>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 block">Optional Note</label>
               <input
                 type="text"
                 value={punchNote}
                 onChange={(e) => setPunchNote(e.target.value)}
-                placeholder="e.g., Shoot at ECR Studio 2, Client meeting at DLF, WFH sprint..."
-                className="w-full rounded-xl glass-input px-3.5 py-2.5 text-xs text-white"
+                placeholder="e.g. Regular punch or client meeting..."
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 outline-none focus:border-indigo-500"
               />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
-                type="button"
                 onClick={() => setConfirmModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
               >
                 Cancel
               </button>
               <button
-                type="button"
                 onClick={handleConfirmPunch}
                 disabled={isActionLoading}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs text-white shadow-lg transition flex items-center gap-2 ${
-                  pendingAction === "CHECK_IN"
-                    ? "bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-500/20"
-                    : "bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 shadow-rose-500/20"
-                } disabled:opacity-50`}
+                className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition"
               >
-                {isActionLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Recording...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    {pendingAction === "CHECK_IN" ? "Confirm & Clock In" : "Confirm & Clock Out"}
-                  </>
-                )}
+                {isActionLoading ? "Recording..." : "Confirm & Punch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* High-Visibility Confirmation Alert Modal (Check-in & Check-out) */}
+      {punchAlertData && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 border border-slate-200 shadow-2xl space-y-5 text-slate-900 relative overflow-hidden"
+          >
+            {/* Ambient top decoration */}
+            <div
+              className={`absolute top-0 left-0 right-0 h-2.5 ${
+                punchAlertData.action === "CHECK_IN"
+                  ? "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500"
+                  : "bg-gradient-to-r from-indigo-500 via-sky-500 to-blue-600"
+              }`}
+            />
+
+            {/* Center Animated Icon Badge */}
+            <div className="flex flex-col items-center text-center pt-2">
+              <div
+                className={`relative w-20 h-20 rounded-3xl flex items-center justify-center mb-3 shadow-lg ${
+                  punchAlertData.action === "CHECK_IN"
+                    ? "bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-emerald-500/20"
+                    : "bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-indigo-500/20"
+                }`}
+              >
+                <div
+                  className={`absolute inset-0 rounded-3xl animate-ping opacity-20 ${
+                    punchAlertData.action === "CHECK_IN" ? "bg-emerald-400" : "bg-indigo-400"
+                  }`}
+                />
+                <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
+              </div>
+
+              <span
+                className={`px-3 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider mb-1 ${
+                  punchAlertData.action === "CHECK_IN"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-indigo-100 text-indigo-800"
+                }`}
+              >
+                {punchAlertData.action === "CHECK_IN" ? "Shift Activated" : "Shift Completed"}
+              </span>
+
+              <h3 className="text-2xl font-black tracking-tight text-slate-900">
+                {punchAlertData.action === "CHECK_IN" ? "Check-In Confirmed!" : "Check-Out Confirmed!"}
+              </h3>
+
+              <p className="text-xs text-slate-500 mt-1 max-w-xs leading-relaxed">
+                {punchAlertData.action === "CHECK_IN"
+                  ? "Your daily attendance timestamp and geofenced coordinates have been securely locked into the enterprise timesheet."
+                  : "Shift concluded successfully! Working hours have been compiled and credited to your payroll ledger."}
+              </p>
+            </div>
+
+            {/* Punch Details Card */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Recorded Timestamp
+                </span>
+                <span className="font-extrabold text-slate-900 text-sm">{punchAlertData.time}</span>
+              </div>
+
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                  Work Mode
+                </span>
+                <span className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-white border border-slate-200 text-slate-800">
+                  {punchAlertData.workMode === "OFFICE"
+                    ? "Office HQ"
+                    : punchAlertData.workMode === "WORK_FROM_HOME"
+                    ? "Work From Home (Remote)"
+                    : punchAlertData.workMode === "SHOOT"
+                    ? "On-Site Shoot"
+                    : punchAlertData.workMode === "CLIENT_VISIT"
+                    ? "Client Visit"
+                    : "Field Travel"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  Location Verification
+                </span>
+                <span className="flex items-center gap-1 font-bold text-emerald-600 text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {punchAlertData.isWithinGeofence
+                    ? "Verified Geofence"
+                    : punchAlertData.workMode === "WORK_FROM_HOME"
+                    ? "Remote Approved"
+                    : "GPS Logged"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-slate-400" />
+                  Schedule
+                </span>
+                <span className="font-semibold text-slate-700 text-[11px] truncate max-w-[200px]">
+                  {punchAlertData.shiftName}
+                </span>
+              </div>
+            </div>
+
+            {/* Bottom Dismiss Button */}
+            <div className="pt-1">
+              <button
+                onClick={() => setPunchAlertData(null)}
+                className={`w-full py-3 rounded-2xl font-bold text-xs text-white shadow-lg transition flex items-center justify-center gap-2 ${
+                  punchAlertData.action === "CHECK_IN"
+                    ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/25"
+                    : "bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/25"
+                }`}
+              >
+                <span>Awesome, Got It!</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </motion.div>

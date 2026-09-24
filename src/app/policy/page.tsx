@@ -2,13 +2,13 @@
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/layout/AppLayout";
-import CommunicationGatewayView from "@/components/communication/CommunicationGatewayView";
+import PolicyView from "@/components/policy/PolicyView";
 
-export default function CommunicationPage() {
+export default function PolicyPage() {
   return (
     <ProtectedRoute allowedRoles={["SUPER_ADMIN", "COMPANY_ADMIN"]}>
       <AppLayout>
-        <CommunicationGatewayView />
+        <PolicyView />
       </AppLayout>
     </ProtectedRoute>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/context/AuthContext";
 import EmployeeDocumentsView from "@/components/employees/EmployeeDocumentsView";
@@ -19,14 +20,22 @@ import {
   AlertTriangle,
   FileText,
   Calendar,
+  Laptop,
+  Box,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { offboardingApi } from "@/lib/api";
+import { offboardingApi, assetsApi, employeesApi, branchesApi } from "@/lib/api";
 import { toast } from "sonner";
+import { unwrapList } from "@/lib/utils";
+import { Asset, AssetAssignment } from "@/types";
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<"DOCUMENTS" | "PROFILE" | "EXIT">("DOCUMENTS");
+  const { user, isLoading, refreshUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<"DOCUMENTS" | "PROFILE" | "EXIT" | "ASSETS">("DOCUMENTS");
+  const [myAssets, setMyAssets] = useState<{ assignedAssets: Asset[]; history: AssetAssignment[] } | null>(null);
+  const [assetsLoading, setAssetsLoading] = useState(false);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [savingBranch, setSavingBranch] = useState(false);
 
   // Exit & Resignation state
   const [myExit, setMyExit] = useState<any>(null);
@@ -52,10 +61,26 @@ export default function ProfilePage() {
     }
   };
 
+  const loadMyAssets = async () => {
+    setAssetsLoading(true);
+    try {
+      const res = await assetsApi.getMyAssets();
+      if (res?.success && res.data) {
+        setMyAssets(res.data);
+      }
+    } catch {
+      setMyAssets(null);
+    } finally {
+      setAssetsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (user?.employee) {
       loadMyExit();
+      loadMyAssets();
     }
+    branchesApi.list().then((res) => setBranches(unwrapList(res))).catch(() => setBranches([]));
   }, [user]);
 
   const handleResignSubmit = async (e: React.FormEvent) => {
@@ -91,12 +116,14 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-2" />
-          <p className="text-sm">Loading employee profile...</p>
-        </div>
-      </AppLayout>
+      <ProtectedRoute>
+        <AppLayout>
+          <div className="py-20 flex flex-col items-center justify-center text-slate-500">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-2" />
+            <p className="text-sm">Loading employee profile...</p>
+          </div>
+        </AppLayout>
+      </ProtectedRoute>
     );
   }
 
@@ -104,45 +131,46 @@ export default function ProfilePage() {
   const isSuperOrAdmin = ["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER"].includes(user?.role || "");
 
   return (
+    <ProtectedRoute>
     <AppLayout>
       <div className="space-y-6 max-w-7xl mx-auto pb-12">
         {/* Header Profile Hero Card */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 bg-gradient-to-r from-[#090d16] via-indigo-950/30 to-[#090d16] shadow-2xl relative overflow-hidden">
+        <div className="rounded-3xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm relative overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 to-sky-400 text-white font-black text-3xl flex items-center justify-center shadow-xl border border-white/10 shrink-0">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white font-black text-3xl flex items-center justify-center shadow-md shrink-0">
                 {employee?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || "U"}
               </div>
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl font-black text-white">
+                  <h1 className="text-2xl font-black text-slate-900">
                     {employee?.firstName
                       ? `${employee.firstName} ${employee.lastName || ""}`
                       : user?.email?.split("@")[0]}
                   </h1>
                   {employee?.employeeCode && (
-                    <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200">
                       {employee.employeeCode}
                     </span>
                   )}
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-600/30 text-indigo-200 border border-indigo-500/40 uppercase tracking-wider">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 uppercase tracking-wider">
                     {user?.role}
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-2 text-xs text-slate-400">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-2 text-xs text-slate-600">
                   <span className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400" />
                     {user?.email}
                   </span>
                   {employee?.phone && (
                     <span className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      <Phone className="w-3.5 h-3.5 text-slate-400" />
                       {employee.phone}
                     </span>
                   )}
                   <span className="flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
                     {employee?.department?.name || "Corporate"} • {employee?.branch?.name || "Main HQ"}
                   </span>
                 </div>
@@ -150,13 +178,13 @@ export default function ProfilePage() {
             </div>
 
             {/* Tab navigation pills */}
-            <div className="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 overflow-x-auto">
+            <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto">
               <button
                 onClick={() => setActiveTab("DOCUMENTS")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === "DOCUMENTS"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <FileCheck2 className="w-4 h-4" />
@@ -166,8 +194,8 @@ export default function ProfilePage() {
                 onClick={() => setActiveTab("PROFILE")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === "PROFILE"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <User className="w-4 h-4" />
@@ -177,12 +205,23 @@ export default function ProfilePage() {
                 onClick={() => setActiveTab("EXIT")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   activeTab === "EXIT"
-                    ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/20"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <UserMinus className="w-4 h-4" />
                 Exit & Separation
+              </button>
+              <button
+                onClick={() => setActiveTab("ASSETS")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                  activeTab === "ASSETS"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Laptop className="w-4 h-4" />
+                My Assets ({myAssets?.assignedAssets?.length || 0})
               </button>
             </div>
           </div>
@@ -190,7 +229,7 @@ export default function ProfilePage() {
 
         {/* Tab Body */}
         {activeTab === "DOCUMENTS" ? (
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 bg-[#090d16]/80 shadow-2xl">
+          <div className="rounded-3xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm">
             {employee ? (
               <EmployeeDocumentsView
                 employeeId={employee.id}
@@ -199,12 +238,12 @@ export default function ProfilePage() {
                 isCurrentUserAdmin={isSuperOrAdmin}
               />
             ) : (
-              <div className="text-center py-16 text-slate-400">
-                <FileCheck2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-white mb-1">No Linked Employee Record Found</h3>
+              <div className="text-center py-16 text-slate-500">
+                <FileCheck2 className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-900 mb-1">No Linked Employee Record Found</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
                   Your administrator account is not linked to a specific staff record. Go to the{" "}
-                  <a href="/employees" className="text-indigo-400 underline font-bold">
+                  <a href="/employees" className="text-indigo-600 underline font-bold">
                     Employee Directory
                   </a>{" "}
                   to view and verify all workforce documents.
@@ -213,38 +252,38 @@ export default function ProfilePage() {
             )}
           </div>
         ) : activeTab === "EXIT" ? (
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-800 bg-[#090d16]/80 shadow-2xl space-y-6">
-            <div className="border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <UserMinus className="w-5 h-5 text-rose-400" />
+          <div className="rounded-3xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm space-y-6">
+            <div className="border-b border-slate-200 pb-4">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <UserMinus className="w-5 h-5 text-rose-500" />
                 Employee Separation & Resignation Lifecycle
               </h2>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Submit resignation notice, track departmental clearances, and review Full & Final settlement.
               </p>
             </div>
 
             {exitLoading ? (
-              <div className="py-12 text-center text-slate-400">
+              <div className="py-12 text-center text-slate-500">
                 <Loader2 className="w-6 h-6 animate-spin text-rose-500 mx-auto mb-2" />
                 <p className="text-xs">Loading separation records...</p>
               </div>
             ) : myExit ? (
               <div className="space-y-6">
                 {/* Active Exit Status Banner */}
-                <div className="glass-card rounded-2xl p-5 border border-amber-500/30 bg-amber-950/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="rounded-2xl p-5 border border-amber-200 bg-amber-50/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 uppercase">
                       Current Stage: {myExit.status.replace(/_/g, " ")}
                     </span>
-                    <h3 className="text-base font-bold text-white mt-1.5">
+                    <h3 className="text-base font-bold text-slate-900 mt-1.5">
                       Separation Request in Progress
                     </h3>
-                    <p className="text-xs text-slate-300 mt-1">
+                    <p className="text-xs text-slate-700 mt-1">
                       Submitted on <strong>{formatDate(myExit.resignationDate)}</strong> • Notice:{" "}
                       <strong>{myExit.noticePeriodDays} Days</strong>
                     </p>
-                    <p className="text-xs text-indigo-300 mt-0.5">
+                    <p className="text-xs text-indigo-700 mt-0.5">
                       Approved Last Working Day (LWD):{" "}
                       <strong>
                         {myExit.approvedLastWorkingDate
@@ -255,11 +294,11 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs text-slate-400">Clearances Completed</p>
-                    <p className="text-2xl font-black text-white mt-0.5">
+                    <p className="text-xs text-slate-500">Clearances Completed</p>
+                    <p className="text-2xl font-black text-slate-900 mt-0.5">
                       {myExit.metrics?.clearedCount} / {myExit.metrics?.totalClearances}
                     </p>
-                    <div className="w-32 bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden ml-auto">
+                    <div className="w-32 bg-slate-200 rounded-full h-1.5 mt-1 overflow-hidden ml-auto">
                       <div
                         className="bg-emerald-500 h-full rounded-full"
                         style={{ width: `${myExit.metrics?.clearanceProgress || 0}%` }}
@@ -270,22 +309,22 @@ export default function ProfilePage() {
 
                 {/* Clearances Table */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-bold text-white">Your Handover Clearances</h4>
+                  <h4 className="text-sm font-bold text-slate-900">Your Handover Clearances</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {myExit.clearances?.map((c: any) => (
                       <div
                         key={c.id}
-                        className="p-3 rounded-xl border border-slate-800 bg-slate-900/60 flex items-center justify-between text-xs"
+                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs"
                       >
                         <div>
-                          <p className="font-bold text-slate-200">{c.itemName}</p>
-                          <p className="text-[10px] text-slate-400 uppercase">{c.department.replace(/_/g, " ")}</p>
+                          <p className="font-bold text-slate-800">{c.itemName}</p>
+                          <p className="text-[10px] text-slate-500 uppercase">{c.department.replace(/_/g, " ")}</p>
                         </div>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             c.status === "CLEARED" || c.status === "WAIVED"
-                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200"
                           }`}
                         >
                           {c.status}
@@ -297,73 +336,73 @@ export default function ProfilePage() {
 
                 {/* Final Settlement if calculated */}
                 {myExit.finalSettlement && (
-                  <div className="glass-card rounded-2xl p-5 border border-indigo-500/30 bg-indigo-950/20 flex items-center justify-between">
+                  <div className="rounded-2xl p-5 border border-indigo-200 bg-indigo-50/50 flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-bold text-indigo-300 uppercase">Calculated Full & Final Settlement</h4>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Status: <strong className="text-white">{myExit.finalSettlement.status}</strong>
+                      <h4 className="text-xs font-bold text-indigo-800 uppercase">Calculated Full & Final Settlement</h4>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        Status: <strong className="text-slate-900">{myExit.finalSettlement.status}</strong>
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-black text-white font-mono">
+                      <p className="text-2xl font-black text-slate-900 font-mono">
                         ₹{Number(myExit.finalSettlement.netPayable).toLocaleString("en-IN")}
                       </p>
-                      <p className="text-[10px] text-slate-400">Net Separation Amount</p>
+                      <p className="text-[10px] text-slate-500">Net Separation Amount</p>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
               <form onSubmit={handleResignSubmit} className="max-w-xl space-y-4 text-xs">
-                <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-2">
-                  <div className="flex items-center gap-2 text-amber-400 font-bold">
+                <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-2 text-amber-800 font-bold">
                     <AlertTriangle className="w-4 h-4" />
                     Voluntary Separation Notice
                   </div>
-                  <p className="text-slate-400 leading-relaxed text-[11px]">
+                  <p className="text-slate-600 leading-relaxed text-[11px]">
                     Submitting this form initiates standard organizational separation protocols. The mandatory notice
                     period is 30 days. You will be scheduled for an exit interview and handover checklist with your manager.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Reason for Resignation *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Reason for Resignation *</label>
                   <textarea
                     value={resignationReason}
                     onChange={(e) => setResignationReason(e.target.value)}
                     rows={3}
                     required
                     placeholder="Please share the reason for your departure..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Preferred Last Working Day</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Preferred Last Working Day</label>
                   <input
                     type="date"
                     value={preferredLwd}
                     onChange={(e) => setPreferredLwd(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">Subject to HR and management approval.</p>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-300 mb-1">Feedback / Handover Notes</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Feedback / Handover Notes</label>
                   <textarea
                     value={employeeComments}
                     onChange={(e) => setEmployeeComments(e.target.value)}
                     rows={2}
                     placeholder="Any comments regarding KT or project dependencies..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSubmittingResignation}
-                  className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/25 flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 flex items-center gap-2"
                 >
                   {isSubmittingResignation && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Submit Resignation Notice
@@ -371,63 +410,128 @@ export default function ProfilePage() {
               </form>
             )}
           </div>
-        ) : (
+        ) : activeTab === "PROFILE" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="glass-card rounded-3xl p-6 border border-slate-800 bg-[#090d16]/80 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                <Briefcase className="w-4 h-4 text-indigo-400" />
+            <div className="rounded-3xl p-6 border border-slate-200 bg-white shadow-sm space-y-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
+                <Briefcase className="w-4 h-4 text-indigo-600" />
                 Employment & Role Details
               </h3>
               <div className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">System User ID:</span>
-                  <span className="text-slate-300 font-mono text-[11px]">{user?.id}</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">System User ID:</span>
+                  <span className="text-slate-700 font-mono text-[11px]">{user?.id}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Employee Code:</span>
-                  <span className="text-indigo-300 font-mono font-bold">{employee?.employeeCode || "N/A"}</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Employee Code:</span>
+                  <span className="text-indigo-600 font-mono font-bold">{employee?.employeeCode || "N/A"}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Department:</span>
-                  <span className="text-slate-200 font-medium">{employee?.department?.name || "Corporate Operations"}</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Department:</span>
+                  <span className="text-slate-800 font-medium">{employee?.department?.name || "Corporate Operations"}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Work Location / Branch:</span>
-                  <span className="text-slate-200 font-medium">{employee?.branch?.name || "Main Headquarters"}</span>
+                <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-3">
+                  <span className="text-slate-500 shrink-0">Work Location / Branch:</span>
+                  {branches.length > 0 ? (
+                    <select
+                      disabled={savingBranch}
+                      value={employee?.branchId || employee?.branch?.id || ""}
+                      onChange={async (e) => {
+                        const branchId = e.target.value || null;
+                        setSavingBranch(true);
+                        try {
+                          const res = await employeesApi.updateMe({ branchId });
+                          if (res?.success !== false) {
+                            toast.success("Your branch was updated");
+                            await refreshUser();
+                          } else toast.error(res?.message || "Could not set branch");
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || "Could not set branch");
+                        } finally {
+                          setSavingBranch(false);
+                        }
+                      }}
+                      className="max-w-[220px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
+                    >
+                      <option value="">Select branch</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-slate-800 font-medium">{employee?.branch?.name || "No branch yet"}</span>
+                  )}
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Shift Schedule:</span>
-                  <span className="text-slate-200 font-medium">{employee?.shift?.name || "Standard Day Shift"}</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Shift Schedule:</span>
+                  <span className="text-slate-800 font-medium">{employee?.shift?.name || "Standard Day Shift"}</span>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span className="text-slate-400">Account Role:</span>
-                  <span className="text-indigo-400 font-semibold">{user?.role}</span>
+                  <span className="text-slate-500">Account Role:</span>
+                  <span className="text-indigo-600 font-semibold">{user?.role}</span>
                 </div>
               </div>
             </div>
 
-            <div className="glass-card rounded-3xl p-6 border border-slate-800 bg-[#090d16]/80 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-                <Shield className="w-4 h-4 text-emerald-400" />
+            <div className="rounded-3xl p-6 border border-slate-200 bg-white shadow-sm space-y-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-3">
+                <Shield className="w-4 h-4 text-emerald-600" />
                 Statutory Compliance & Security
               </h3>
               <div className="space-y-3 text-xs">
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Employment Status:</span>
-                  <span className="text-emerald-400 font-bold">{employee?.status || "ACTIVE"}</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Employment Status:</span>
+                  <span className="text-emerald-700 font-bold">{employee?.status || "ACTIVE"}</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Document Compliance Status:</span>
-                  <span className="text-indigo-300 font-semibold">10 Configured Categories</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Document Compliance Status:</span>
+                  <span className="text-indigo-600 font-semibold">10 Configured Categories</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-800/50">
-                  <span className="text-slate-400">Mandatory IDs:</span>
-                  <span className="text-slate-300">Aadhaar, PAN, Education, Bank</span>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-500">Mandatory IDs:</span>
+                  <span className="text-slate-700">Aadhaar, PAN, Education, Bank</span>
                 </div>
+                <form
+                  className="space-y-2 pt-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    try {
+                      const res = await employeesApi.updateMe({
+                        phone: fd.get("phone"),
+                        address: fd.get("address"),
+                        emergencyContactName: fd.get("emergencyContactName"),
+                        emergencyContactPhone: fd.get("emergencyContactPhone"),
+                        bankName: fd.get("bankName"),
+                        bankAccountNumber: fd.get("bankAccountNumber"),
+                        bankIfsc: fd.get("bankIfsc"),
+                      });
+                      if (res?.success) {
+                        toast.success("Profile saved");
+                        await refreshUser();
+                      } else toast.error(res?.message || "Save failed");
+                    } catch (err: any) {
+                      toast.error(err.response?.data?.message || "Save failed");
+                    }
+                  }}
+                >
+                  <input name="phone" defaultValue={employee?.phone || ""} placeholder="Phone" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="address" defaultValue={(employee as any)?.address || ""} placeholder="Address" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="emergencyContactName" defaultValue={(employee as any)?.emergencyContactName || ""} placeholder="Emergency contact" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="emergencyContactPhone" defaultValue={(employee as any)?.emergencyContactPhone || ""} placeholder="Emergency phone" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="bankName" defaultValue={(employee as any)?.bankName || ""} placeholder="Bank name" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="bankAccountNumber" defaultValue={(employee as any)?.bankAccountNumber || ""} placeholder="Account number" className="w-full px-3 py-2 rounded-xl border" />
+                  <input name="bankIfsc" defaultValue={(employee as any)?.bankIfsc || ""} placeholder="IFSC" className="w-full px-3 py-2 rounded-xl border" />
+                  <button type="submit" className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold">
+                    Save my details
+                  </button>
+                </form>
                 <div className="pt-2">
                   <button
                     onClick={() => setActiveTab("DOCUMENTS")}
-                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2"
                   >
                     <FileCheck2 className="w-4 h-4" />
                     Manage All My Documents
@@ -436,8 +540,168 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        ) : (
+          /* ASSETS TAB */
+          <div className="space-y-6">
+            <div className="rounded-3xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5 mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Laptop className="w-5 h-5 text-indigo-600" />
+                    Entrusted Company Assets & Equipment
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    View laptops, monitors, mobile devices, and access tokens officially registered in your custody
+                  </p>
+                </div>
+                <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {myAssets?.assignedAssets?.length || 0} Active Device(s)
+                </span>
+              </div>
+
+              {assetsLoading ? (
+                <div className="py-16 text-center text-slate-500">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mx-auto mb-2" />
+                  <p className="text-xs">Loading your assigned equipment...</p>
+                </div>
+              ) : !myAssets?.assignedAssets || myAssets.assignedAssets.length === 0 ? (
+                <div className="py-16 text-center text-slate-500">
+                  <Box className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                  <h3 className="text-base font-bold text-slate-900 mb-1">No Assets Assigned</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    You currently do not have any company hardware or office assets registered under your custody.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myAssets.assignedAssets.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 hover:border-slate-300 transition space-y-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-200 flex-shrink-0">
+                            <Laptop className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                {asset.assetCode}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {asset.status}
+                              </span>
+                            </div>
+                            <h3 className="font-bold text-slate-900 text-sm mt-1">{asset.name}</h3>
+                            {asset.brand && (
+                              <p className="text-xs text-slate-500">
+                                {asset.brand} {asset.modelNumber ? `• ${asset.modelNumber}` : ""}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-slate-200">
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase">Serial Number</span>
+                          <p className="font-mono text-slate-700 font-semibold truncate">
+                            {asset.serialNumber || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase">Handover Date</span>
+                          <p className="text-slate-700 font-semibold">
+                            {asset.assignedDate ? new Date(asset.assignedDate).toLocaleDateString() : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase">Condition</span>
+                          <p className="text-emerald-700 font-semibold">{asset.condition}</p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 uppercase">Category</span>
+                          <p className="text-slate-700 font-semibold">{asset.category.replace(/_/g, " ")}</p>
+                        </div>
+                      </div>
+
+                      {asset.specifications && (
+                        <div className="text-xs space-y-1">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase">Specifications</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Object.entries(asset.specifications).map(([k, v]) => (
+                              <span
+                                key={k}
+                                className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-mono border border-slate-200"
+                              >
+                                {k}: {String(v)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Past Custody History */}
+            {myAssets?.history && myAssets.history.length > 0 && (
+              <div className="rounded-3xl p-6 sm:p-8 border border-slate-200 bg-white shadow-sm space-y-4">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Box className="w-4 h-4 text-indigo-600" />
+                  Asset Custody History Log
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="border-b border-slate-200 text-[11px] text-slate-500 uppercase bg-slate-50">
+                      <tr>
+                        <th className="py-2.5 px-3">Asset</th>
+                        <th className="py-2.5 px-3">Action</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Condition</th>
+                        <th className="py-2.5 px-3">Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {myAssets.history.map((h) => (
+                        <tr key={h.id} className="hover:bg-slate-50">
+                          <td className="py-2.5 px-3 font-medium text-slate-900">
+                            {h.asset ? `${h.asset.assetCode} (${h.asset.name})` : "Asset"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                h.type === "ASSIGNMENT"
+                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  : h.type === "RETURN"
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-purple-50 text-purple-700 border border-purple-200"
+                              }`}
+                            >
+                              {h.type}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700">
+                            {new Date(h.returnedDate || h.assignedDate || h.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700">
+                            {h.conditionOnReturn || h.conditionOnAssign || "—"}
+                          </td>
+                          <td className="py-2.5 px-3 italic text-slate-500">{h.remarks || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </AppLayout>
+    </ProtectedRoute>
   );
 }

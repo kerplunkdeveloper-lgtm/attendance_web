@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Employee } from "@/types";
 import { employeesApi, branchesApi, departmentsApi, shiftsApi } from "@/lib/api";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, unwrapList } from "@/lib/utils";
 import {
   Users,
   Search,
@@ -32,6 +32,9 @@ export default function EmployeeDirectory() {
   const [shifts, setShifts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalEmployees, setTotalEmployees] = useState(0);
 
   // Profile & Documents Modal State
   const [selectedEmployeeForProfile, setSelectedEmployeeForProfile] = useState<Employee | null>(null);
@@ -44,7 +47,7 @@ export default function EmployeeDirectory() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("Password@123");
+  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [role, setRole] = useState("EMPLOYEE");
@@ -52,29 +55,34 @@ export default function EmployeeDirectory() {
   const [departmentId, setDepartmentId] = useState("");
   const [shiftId, setShiftId] = useState("");
   const [ctc, setCtc] = useState("");
+  const [panNumber, setPanNumber] = useState("");
+  const [uanNumber, setUanNumber] = useState("");
+  const [esiNumber, setEsiNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [empRes, brRes, deptRes, shiftRes] = await Promise.allSettled([
-        employeesApi.list(),
+        employeesApi.list({ page, limit: 20, search: searchQuery || undefined }),
         branchesApi.list(),
         departmentsApi.list(),
         shiftsApi.list(),
       ]);
 
-      if (empRes.status === "fulfilled" && empRes.value?.success) {
-        setEmployees(empRes.value.data || empRes.value.employees || []);
+      if (empRes.status === "fulfilled") {
+        setEmployees(unwrapList(empRes.value));
+        setTotalPages(empRes.value?.totalPages || 1);
+        setTotalEmployees(empRes.value?.total || unwrapList(empRes.value).length);
       }
-      if (brRes.status === "fulfilled" && brRes.value?.success) {
-        setBranches(brRes.value.data || brRes.value.branches || []);
+      if (brRes.status === "fulfilled") {
+        setBranches(unwrapList(brRes.value));
       }
-      if (deptRes.status === "fulfilled" && deptRes.value?.success) {
-        setDepartments(deptRes.value.data || deptRes.value.departments || []);
+      if (deptRes.status === "fulfilled") {
+        setDepartments(unwrapList(deptRes.value));
       }
-      if (shiftRes.status === "fulfilled" && shiftRes.value?.success) {
-        setShifts(shiftRes.value.data || shiftRes.value.shifts || []);
+      if (shiftRes.status === "fulfilled") {
+        setShifts(unwrapList(shiftRes.value));
       }
     } catch (err) {
       console.error("Failed to load employees:", err);
@@ -85,7 +93,16 @@ export default function EmployeeDirectory() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [page]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1);
+      loadData();
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +121,9 @@ export default function EmployeeDirectory() {
           departmentId: departmentId || undefined,
           shiftId: shiftId || undefined,
           ctc: ctc ? Number(ctc) : undefined,
+          panNumber: panNumber || undefined,
+          uanNumber: uanNumber || undefined,
+          esiNumber: esiNumber || undefined,
         });
       } else {
         res = await employeesApi.create({
@@ -118,6 +138,9 @@ export default function EmployeeDirectory() {
           departmentId: departmentId || undefined,
           shiftId: shiftId || undefined,
           ctc: ctc ? Number(ctc) : undefined,
+          panNumber: panNumber || undefined,
+          uanNumber: uanNumber || undefined,
+          esiNumber: esiNumber || undefined,
         });
       }
 
@@ -136,6 +159,9 @@ export default function EmployeeDirectory() {
         setPhone("");
         setEmployeeCode("");
         setCtc("");
+        setPanNumber("");
+        setUanNumber("");
+        setEsiNumber("");
         loadData();
       } else {
         toast.error(res?.message || "Failed to add employee");
@@ -147,25 +173,18 @@ export default function EmployeeDirectory() {
     }
   };
 
-  const filteredEmployees = employees.filter((emp) => {
-    const query = searchQuery.toLowerCase();
-    const fullName = `${emp.firstName} ${emp.lastName || ""}`.toLowerCase();
-    const code = (emp.employeeCode || "").toLowerCase();
-    const emailStr = (emp.user?.email || "").toLowerCase();
-    const dept = (emp.department?.name || "").toLowerCase();
-    return fullName.includes(query) || code.includes(query) || emailStr.includes(query) || dept.includes(query);
-  });
+  const filteredEmployees = employees;
 
   return (
     <div className="space-y-6">
       {/* Header & Add Action */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <Users className="w-7 h-7 text-indigo-400" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <Users className="w-7 h-7 text-indigo-600" />
             Workforce Employee Directory
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Manage organization members, assign branches, departments, shifts, and configure compensation
           </p>
         </div>
@@ -222,10 +241,10 @@ export default function EmployeeDirectory() {
       </div>
 
       {/* Directory Table */}
-      <div className="glass-card rounded-3xl border border-slate-800 overflow-hidden shadow-xl">
+      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-900/80 text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-800 font-semibold">
+          <table className="w-full text-left text-xs text-slate-700">
+            <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wider border-b border-slate-200 font-semibold">
               <tr>
                 <th className="py-3.5 px-4">Employee</th>
                 <th className="py-3.5 px-4">Code</th>
@@ -237,13 +256,44 @@ export default function EmployeeDirectory() {
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-10 text-slate-500">
-                    Loading workforce directory...
-                  </td>
-                </tr>
+                <>
+                  {[...Array(6)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
+                          <div className="space-y-1.5">
+                            <div className="h-3.5 w-28 bg-slate-200 rounded" />
+                            <div className="h-2.5 w-36 bg-slate-100 rounded" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-3 w-16 bg-slate-200 rounded" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-3 w-20 bg-slate-200 rounded" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-3 w-16 bg-slate-200 rounded" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-3 w-20 bg-slate-200 rounded" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-5 w-16 bg-slate-100 rounded-full" />
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="h-5 w-14 bg-emerald-50 rounded-full" />
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <div className="h-4 w-12 bg-slate-200 rounded ml-auto" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : filteredEmployees.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-slate-500">
@@ -252,7 +302,7 @@ export default function EmployeeDirectory() {
                 </tr>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-800/40 transition group">
+                  <tr key={emp.id} className="hover:bg-slate-50/80 transition group">
                     <td className="py-3.5 px-4">
                       <div
                         onClick={() => {
@@ -261,40 +311,72 @@ export default function EmployeeDirectory() {
                         }}
                         className="flex items-center gap-3 cursor-pointer"
                       >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow group-hover:ring-2 group-hover:ring-indigo-400/40 transition">
-                          {emp.firstName?.[0] || "E"}
-                        </div>
+                        {emp.avatarUrl ? (
+                          <img
+                            src={emp.avatarUrl}
+                            alt={`${emp.firstName} ${emp.lastName || ""}`}
+                            className="w-8 h-8 rounded-full object-cover shadow-xs group-hover:ring-2 group-hover:ring-indigo-400/40 transition"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-sky-400 text-white font-bold text-xs flex items-center justify-center shadow-xs group-hover:ring-2 group-hover:ring-indigo-400/40 transition">
+                            {emp.firstName?.[0] || "E"}
+                          </div>
+                        )}
                         <div>
-                          <p className="font-semibold text-white group-hover:text-indigo-300 transition">
+                          <p className="font-semibold text-slate-900 group-hover:text-indigo-600 transition">
                             {emp.firstName} {emp.lastName || ""}
                           </p>
-                          <p className="text-[11px] text-slate-400">{emp.user?.email || emp.phone || "-"}</p>
+                          <p className="text-[11px] text-slate-500">{emp.user?.email || emp.phone || "-"}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-mono font-semibold text-indigo-300">
+                    <td className="py-3.5 px-4 font-mono font-semibold text-indigo-700">
                       {emp.employeeCode}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-300">
+                    <td className="py-3.5 px-4 text-slate-600">
                       {emp.department?.name || "-"}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-300">
-                      {emp.branch?.name || "HQ"}
+                    <td className="py-3.5 px-4 text-slate-600">
+                      <select
+                        value={emp.branchId || ""}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          employeesApi
+                            .update(emp.id, { branchId: next || null })
+                            .then((res) => {
+                              if (res?.success !== false) {
+                                toast.success("Branch updated");
+                                loadData();
+                              } else toast.error(res?.message || "Could not set branch");
+                            })
+                            .catch((err) => toast.error(err.response?.data?.message || "Could not set branch"));
+                        }}
+                        className="max-w-[160px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800"
+                      >
+                        <option value="">No branch</option>
+                        {branches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400">
+                    <td className="py-3.5 px-4 text-slate-500">
                       {emp.shift?.name || "General Shift"}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                         {emp.user?.role || "EMPLOYEE"}
                       </span>
                     </td>
                     <td className="py-3.5 px-4">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          emp.status === "ACTIVE"
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                            : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          emp.status === "ACTIVE" || emp.status === "PROBATION"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : emp.status === "NOTICE_PERIOD"
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-rose-50 text-rose-700 border-rose-200"
                         }`}
                       >
                         {emp.status}
@@ -306,7 +388,7 @@ export default function EmployeeDirectory() {
                           setSelectedEmployeeForProfile(emp);
                           setProfileModalOpen(true);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/20 text-xs font-bold transition shadow-sm"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 text-xs font-bold transition shadow-xs cursor-pointer"
                         title="View Employee Profile & Manage Documents"
                       >
                         <FileCheck2 className="w-3.5 h-3.5" />
@@ -319,30 +401,55 @@ export default function EmployeeDirectory() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
+            <span>
+              Page {page} of {totalPages} · {totalEmployees} employees
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Employee Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-1">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">
               {inviteMode === "INVITE" ? "Invite Employee via Email" : "Add New Workforce Member"}
             </h3>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-slate-500 mb-4">
               {inviteMode === "INVITE"
                 ? "Auto-generates temporary access credentials and emails them to the employee."
                 : "Directly provisions an account with custom credentials and role assignment."}
             </p>
 
             {/* Mode Switcher Tabs */}
-            <div className="flex rounded-xl bg-slate-900/90 p-1 border border-slate-800 mb-4">
+            <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200 mb-4">
               <button
                 type="button"
                 onClick={() => setInviteMode("INVITE")}
                 className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
                   inviteMode === "INVITE"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Mail className="w-3.5 h-3.5" />
@@ -353,8 +460,8 @@ export default function EmployeeDirectory() {
                 onClick={() => setInviteMode("MANUAL")}
                 className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
                   inviteMode === "MANUAL"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -363,9 +470,9 @@ export default function EmployeeDirectory() {
             </div>
 
             {inviteMode === "INVITE" && (
-              <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 mb-4 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-indigo-200 leading-relaxed">
+              <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 mb-4 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-indigo-900 leading-relaxed">
                   WorkPulse will generate a secure temporary password and email it to the employee with their company sign-in link. They must change password upon first login.
                 </p>
               </div>
@@ -374,46 +481,46 @@ export default function EmployeeDirectory() {
             <form onSubmit={handleCreateEmployee} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">First Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">First Name *</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Last Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Last Name</label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
               <div className={inviteMode === "INVITE" ? "space-y-1" : "grid grid-cols-2 gap-3"}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email *</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="employee@company.com"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                     required
                   />
                 </div>
                 {inviteMode === "MANUAL" && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">Temporary Password *</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Temporary Password *</label>
                     <input
                       type="text"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full glass-input rounded-xl p-2.5 text-xs font-mono"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-mono text-slate-900 focus:outline-none focus:border-indigo-500"
                       required
                     />
                   </div>
@@ -422,21 +529,21 @@ export default function EmployeeDirectory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Employee Code</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Employee Code</label>
                   <input
                     type="text"
                     value={employeeCode}
                     onChange={(e) => setEmployeeCode(e.target.value)}
                     placeholder="e.g. WP-EMP-009 (optional)"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">System Role *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">System Role *</label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="EMPLOYEE">EMPLOYEE</option>
                     <option value="MANAGER">MANAGER</option>
@@ -447,11 +554,11 @@ export default function EmployeeDirectory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Branch</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Branch</label>
                   <select
                     value={branchId}
                     onChange={(e) => setBranchId(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">Select Branch...</option>
                     {branches.map((b) => (
@@ -462,11 +569,11 @@ export default function EmployeeDirectory() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Department</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
                   <select
                     value={departmentId}
                     onChange={(e) => setDepartmentId(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">Select Department...</option>
                     {departments.map((d) => (
@@ -480,11 +587,11 @@ export default function EmployeeDirectory() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Shift Schedule</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Shift Schedule</label>
                   <select
                     value={shiftId}
                     onChange={(e) => setShiftId(e.target.value)}
-                    className="w-full glass-input rounded-xl p-2.5 text-xs text-slate-200"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     <option value="">Select Shift...</option>
                     {shifts.map((s) => (
@@ -495,22 +602,55 @@ export default function EmployeeDirectory() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Annual CTC (INR)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Annual CTC (INR)</label>
                   <input
                     type="number"
                     value={ctc}
                     onChange={(e) => setCtc(e.target.value)}
                     placeholder="e.g. 900000"
-                    className="w-full glass-input rounded-xl p-2.5 text-xs"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">PAN</label>
+                  <input
+                    type="text"
+                    value={panNumber}
+                    onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">UAN</label>
+                  <input
+                    type="text"
+                    value={uanNumber}
+                    onChange={(e) => setUanNumber(e.target.value)}
+                    placeholder="PF UAN"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">ESI number</label>
+                  <input
+                    type="text"
+                    value={esiNumber}
+                    onChange={(e) => setEsiNumber(e.target.value)}
+                    placeholder="ESI IP"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900"
                 >
                   Cancel
                 </button>
@@ -547,4 +687,3 @@ export default function EmployeeDirectory() {
     </div>
   );
 }
-
